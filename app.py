@@ -4,7 +4,7 @@ import uuid
 import io
 import base64
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 def _wood_texture_b64():
     # SVG from cellar-handoff/direction-cellar.jsx
@@ -71,6 +71,18 @@ def load_products():
 def save_products(products):
     with open(PRODUCTS_FILE, "w", encoding="utf-8") as f:
         json.dump(products, f, indent=2, ensure_ascii=False)
+
+SETTINGS_FILE = DATA_DIR / "settings.json"
+
+def load_settings():
+    if not SETTINGS_FILE.exists():
+        return {}
+    with open(SETTINGS_FILE, encoding="utf-8") as f:
+        return json.load(f)
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
 
 def get_product(pid):
     return next((p for p in load_products() if p["id"] == pid), None)
@@ -148,7 +160,7 @@ def compliance_score(product):
 
 # ── QR ────────────────────────────────────────────────────────────────────────
 def get_label_url(pid):
-    base = st.session_state.get("base_url", "http://localhost:8501")
+    base = st.session_state.get("base_url") or load_settings().get("base_url", "http://localhost:8501")
     return f"{base}/?label={pid}"
 
 def make_qr_image(url):
@@ -296,9 +308,55 @@ section[data-testid="stSidebar"]{{background:{C['woodDark']}!important;}}
 
 /* ── 7. Form inputs — light backgrounds so text is readable ── */
 [data-testid="stTextInput"] input,
-[data-testid="stNumberInput"] input{{
+[data-testid="stNumberInput"] input,
+[data-testid="stDateInput"] input{{
     background:{C['cream']}!important;color:{C['ink']}!important;
     border:1px solid {C['ink12']}!important;border-radius:8px!important;
+}}
+[data-testid="stDateInput"] [data-baseweb="input"],
+[data-testid="stDateInput"] [data-baseweb="base-input"]{{
+    background:{C['cream']}!important;border-color:{C['ink12']}!important;border-radius:8px!important;
+}}
+[data-testid="stDateInput"] button{{
+    background:{C['cream']}!important;color:{C['ink2']}!important;
+}}
+/* Date picker calendar popup */
+[data-baseweb="calendar"],
+[data-baseweb="calendar"] *,
+[data-baseweb="datepicker"],
+[data-baseweb="datepicker"] *{{
+    background:{C['cream']}!important;
+    color:{C['ink']}!important;
+    border-color:{C['paperEdge']}!important;
+}}
+/* Empty / out-of-month / disabled cells — transparent, not dark */
+[data-baseweb="calendar"] td,
+[data-baseweb="calendar"] tr,
+[data-baseweb="calendar"] table{{
+    background:transparent!important;
+}}
+[data-baseweb="calendar"] button[disabled],
+[data-baseweb="calendar"] [aria-disabled="true"],
+[data-baseweb="calendar"] [aria-disabled="true"] *{{
+    background:transparent!important;
+    color:{C['ink60']}!important;
+}}
+/* Selected date */
+[data-baseweb="calendar"] [aria-selected="true"],
+[data-baseweb="calendar"] [aria-selected="true"] *{{
+    background:{C['wine']}!important;
+    color:{C['cream']}!important;
+}}
+/* Today highlight */
+[data-baseweb="calendar"] [aria-current="date"]{{
+    border:2px solid {C['wine']}!important;
+    border-radius:50%!important;
+}}
+/* Hover */
+[data-baseweb="calendar"] button:not([disabled]):hover,
+[data-baseweb="calendar"] [role="option"]:hover{{
+    background:{C['goldSoft']}!important;
+    color:{C['ink']}!important;
 }}
 /* Number input: stepper container, stepper buttons */
 [data-testid="stNumberInput"] [data-baseweb="input"],
@@ -328,10 +386,26 @@ section[data-testid="stSidebar"]{{background:{C['woodDark']}!important;}}
     background:{C['wine']}!important;color:{C['cream']}!important;border-radius:6px!important;
 }}
 [data-testid="stMultiSelect"] [data-baseweb="tag"] span{{color:{C['cream']}!important;}}
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
 [data-baseweb="popover"] [role="listbox"],
-[data-baseweb="menu"]{{background:{C['paper']}!important;border:1px solid {C['paperEdge']}!important;border-radius:10px!important;}}
-[data-baseweb="menu"] li{{background:{C['paper']}!important;color:{C['ink']}!important;}}
-[data-baseweb="menu"] li:hover{{background:{C['goldSoft']}!important;}}
+[data-baseweb="menu"]{{
+    background:{C['paper']}!important;
+    border:1px solid {C['paperEdge']}!important;
+    border-radius:10px!important;
+}}
+[data-baseweb="menu"] li,
+[data-baseweb="menu"] [role="option"],
+[data-baseweb="popover"] [role="option"]{{
+    background:{C['paper']}!important;
+    color:{C['ink']}!important;
+}}
+[data-baseweb="menu"] li:hover,
+[data-baseweb="menu"] [role="option"]:hover,
+[data-baseweb="popover"] [role="option"]:hover{{
+    background:{C['goldSoft']}!important;
+    color:{C['ink']}!important;
+}}
 [data-testid="stWidgetLabel"] p,[data-testid="stWidgetLabel"] label{{color:{C['ink']}!important;}}
 /* Checkbox */
 [data-testid="stCheckbox"] label p{{color:{C['ink']}!important;}}
@@ -363,15 +437,17 @@ button:focus-visible,a:focus-visible{{outline:2px solid {C['wine']}!important;}}
 /* Text selection */
 ::selection{{background:rgba(184,148,85,0.28)!important;color:{C['ink']}!important;}}
 
-/* ── 9. QR & Edit pages — single white container ── */
+/* ── 9. QR, Edit & Public label pages — single white container ── */
 [data-testid="stMainBlockContainer"]:has(.edit-page-marker),
-[data-testid="stMainBlockContainer"]:has(.qr-page-marker){{
+[data-testid="stMainBlockContainer"]:has(.qr-page-marker),
+[data-testid="stMainBlockContainer"]:has(.public-label-marker){{
     background:{C['paper']}!important;
     border-radius:18px!important;
     border:1px solid {C['paperEdge']}!important;
     box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 22px 48px -16px rgba(0,0,0,0.55),0 4px 12px -4px rgba(0,0,0,0.35)!important;
     margin-top:16px!important;
     margin-bottom:16px!important;
+    padding:0!important;
 }}
 /* Inside white containers: strip brown parchment from inner cards */
 [data-testid="stMainBlockContainer"]:has(.edit-page-marker) [data-testid="stForm"],
@@ -421,14 +497,17 @@ def show_public_label(pid):
         st.error("Label not found.")
         return
     inject_css()
+    st.markdown('<div class="public-label-marker" style="display:none;"></div>', unsafe_allow_html=True)
 
     region_line = " · ".join(filter(None, [p.get("product_category"), p.get("variety"), p.get("region"), str(p.get("vintage", ""))]))
     st.markdown(f"""
-    <div style="background:{C['wine']};padding:28px 20px 22px;margin:-1rem -1rem 0;border-radius:0 0 18px 18px;">
+    <div style="background:{C['wine']};padding:28px 20px 22px;margin:-1rem -1rem 0;border-radius:18px 18px 0 0;">
       <div style="font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;letter-spacing:0.2em;color:rgba(255,255,255,0.6);text-transform:uppercase;margin-bottom:6px;">{region_line}</div>
       <div style="font-family:Space Grotesk,sans-serif;font-size:28px;font-weight:700;color:#fff;line-height:1.1;margin-bottom:6px;">{p['name']}</div>
       <div style="font-family:Space Grotesk,sans-serif;font-size:14px;color:rgba(255,255,255,0.72);">{p.get('producer_name','')} · {p.get('country','Australia')}</div>
-    </div><div style="height:16px;"></div>""", unsafe_allow_html=True)
+    </div>
+    <div style="padding:0 20px;">
+    <div style="height:16px;"></div>""", unsafe_allow_html=True)
 
     st.markdown(f"""
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:{C['eu']}12;border:1px solid {C['eu']}28;border-radius:10px;margin-bottom:14px;">
@@ -454,7 +533,7 @@ def show_public_label(pid):
         ("Net qty", p.get("net_quantity") or None),
         ("Lot", p.get("lot_number") or None),
         ("Dosage", p.get("sparkling_dosage") or None),
-        ("Best before", p.get("best_before_date") or None),
+        ("Best before", (lambda d: date.fromisoformat(d).strftime("%d %b %Y") if d else None)(p.get("best_before_date"))),
         ("RRP", _price_str),
     ] if v]
     if facts:
@@ -571,7 +650,7 @@ def show_public_label(pid):
     if p.get("producer_address"):
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:14px;">{p.get("producer_name","")} · {p["producer_address"]}</div>', unsafe_allow_html=True)
 
-    st.markdown(f'<div style="margin-top:24px;padding:14px;border-top:1px solid {C["ink08"]};text-align:center;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink60"]};text-transform:uppercase;">VineLabel · EU e-label Reg. 2021/2117</div></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="margin-top:24px;padding:14px;border-top:1px solid {C["ink08"]};text-align:center;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink60"]};text-transform:uppercase;">VineLabel · EU e-label Reg. 2021/2117</div></div></div>', unsafe_allow_html=True)
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -606,20 +685,22 @@ def _product_card(p):
             )
 
         with ctrl_col:
-            # Status badge flush right
-            st.markdown(
-                f'<div style="text-align:right;padding-top:4px;margin-bottom:6px;">'
-                f'<span style="font-family:DM Sans,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
-                f'color:{scol};border:1px solid {scol}40;border-radius:999px;padding:3px 9px;white-space:nowrap;">{slbl}</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-            # Toggle button directly below badge
-            toggle_sub = st.form_submit_button(
-                "▴ Close" if is_expanded else "▾ Actions",
-                use_container_width=True,
-                type="secondary",
-            )
+            # Actions button left, DRAFT badge right — same row
+            btn_col, badge_col = st.columns([0.52, 0.48])
+            with btn_col:
+                toggle_sub = st.form_submit_button(
+                    "▴ Close" if is_expanded else "▾ Actions",
+                    use_container_width=True,
+                    type="secondary",
+                )
+            with badge_col:
+                st.markdown(
+                    f'<div style="text-align:right;padding-top:8px;">'
+                    f'<span style="font-family:DM Sans,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
+                    f'color:{scol};border:1px solid {scol}40;border-radius:999px;padding:3px 9px;white-space:nowrap;">{slbl}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
         # Action buttons — shown when expanded
         if is_expanded:
@@ -728,16 +809,33 @@ def show_dashboard():
                     _product_card(p)
     else:
         st.markdown(
-            f'<div style="text-align:center;padding:48px 20px;">'
+            f'<div style="background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;'
+            f'box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 18px 38px -16px rgba(0,0,0,0.45);'
+            f'text-align:center;padding:48px 20px;">'
             f'<div style="font-size:44px;margin-bottom:14px;">🍷</div>'
-            f'<div style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:600;color:{C["ink"]};">No products yet</div>'
-            f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;color:{C["ink60"]};margin-top:6px;">Add your first wine to generate an EU-compliant digital label.</div>'
+            f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};">No products yet</div>'
+            f'<div style="font-family:DM Sans,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">Add your first wine to generate an EU-compliant digital label.</div>'
             f'</div>',
             unsafe_allow_html=True
         )
 
     if st.button("+ New Product", type="primary", use_container_width=True):
         st.session_state.update({"page": "add", "edit_id": None}); st.rerun()
+
+    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+    settings = load_settings()
+    current_url = st.session_state.get("base_url") or settings.get("base_url", "")
+    with st.expander("⚙️ Settings"):
+        st.markdown(f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-bottom:8px;">Paste your published app URL so QR codes link to the live label page.</div>', unsafe_allow_html=True)
+        new_url = st.text_input("Published app URL", value=current_url, placeholder="https://vinelabel-app.streamlit.app")
+        if st.button("Save", type="primary"):
+            url_clean = (new_url or "").rstrip("/")
+            st.session_state["base_url"] = url_clean
+            s = load_settings()
+            s["base_url"] = url_clean
+            save_settings(s)
+            st.success("URL saved.")
+            st.rerun()
 
 
 # ── Product form ──────────────────────────────────────────────────────────────
@@ -836,7 +934,12 @@ def show_product_form(existing=None):
         with c9: lot_number = st.text_input("Lot number", value=p.get("lot_number", ""), placeholder="L2022-001")
         _dosage_opts = ["— Not applicable —"] + SPARKLING_DOSAGE
         sparkling_dosage = st.selectbox("Sparkling wine dosage", _dosage_opts, index=_dosage_opts.index(p.get("sparkling_dosage", "— Not applicable —")) if p.get("sparkling_dosage") in _dosage_opts else 0, help="Mandatory for sparkling wines under EU Reg. 2021/2117. Leave as 'Not applicable' for still wines.")
-        best_before_date = st.text_input("Best before date", value=p.get("best_before_date", ""), placeholder="e.g. 31/12/2026 — required for de-alcoholized wines only", help="Only required for de-alcoholized wines under EU regulations. Leave blank for standard wines.")
+        _bbd_raw = p.get("best_before_date")
+        _bbd_val = None
+        if _bbd_raw:
+            try: _bbd_val = date.fromisoformat(_bbd_raw)
+            except (ValueError, TypeError): pass
+        best_before_date = st.date_input("Best before date", value=_bbd_val, min_value=date(2020, 1, 1), max_value=date(2040, 12, 31), format="DD/MM/YYYY", help="Only required for de-alcoholized wines under EU regulations. Leave blank for standard wines.")
 
         # 3 — Ingredients
         st.markdown(mlabel("3 — Ingredients"), unsafe_allow_html=True)
@@ -942,7 +1045,7 @@ def show_product_form(existing=None):
                     "country": (country or "").strip(), "producer_address": (producer_address or "").strip(),
                     "abv": round(abv, 1), "net_quantity": (net_quantity or "").strip(), "lot_number": (lot_number or "").strip(),
                     "sparkling_dosage": sparkling_dosage if sparkling_dosage != "— Not applicable —" else None,
-                    "best_before_date": (best_before_date or "").strip() or None,
+                    "best_before_date": best_before_date.isoformat() if best_before_date else None,
                     "auto_calc_energy": auto_calc_energy,
                     "ingredients": all_ings, "allergens": selected_allergens,
                     "nutrition": {"energy_kj": energy_kj, "energy_kcal": energy_kcal, "fat_g": fat_g, "saturated_fat_g": sat_fat_g, "carbohydrate_g": carb_g, "sugars_g": sugars_g, "protein_g": protein_g, "salt_g": salt_g},
@@ -1094,13 +1197,6 @@ def show_qr_page(pid):
                 st.session_state.update({"page": "preview", "preview_id": pid}); st.rerun()
     elif not QR_AVAILABLE:
         st.warning("Run `pip install qrcode[pil]` to enable QR codes.")
-
-    st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
-    with st.expander("Set deployment URL"):
-        st.markdown(f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-bottom:8px;">When deployed to Streamlit Cloud, paste your public app URL here so QR codes point to the right address.</div>', unsafe_allow_html=True)
-        new_base = st.text_input("Base URL", value=st.session_state.get("base_url", "http://localhost:8501"), placeholder="https://your-app.streamlit.app")
-        if st.button("Save URL", type="primary"):
-            st.session_state["base_url"] = new_base.rstrip("/"); st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
     if st.button("Edit Product", type="secondary", use_container_width=True):
