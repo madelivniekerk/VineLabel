@@ -145,6 +145,14 @@ def _get(obj, path):
         return obj.strip() or None
     return obj
 
+def _fmt_date(d):
+    if not d:
+        return None
+    try:
+        return date.fromisoformat(d).strftime("%d %b %Y")
+    except (ValueError, TypeError):
+        return d
+
 def compliance_score(product):
     results = {}
     for section, info in COMPLIANCE.items():
@@ -533,7 +541,7 @@ def show_public_label(pid):
         ("Net qty", p.get("net_quantity") or None),
         ("Lot", p.get("lot_number") or None),
         ("Dosage", p.get("sparkling_dosage") or None),
-        ("Best before", (lambda d: date.fromisoformat(d).strftime("%d %b %Y") if d else None)(p.get("best_before_date"))),
+        ("Best before", _fmt_date(p.get("best_before_date"))),
         ("RRP", _price_str),
     ] if v]
     if facts:
