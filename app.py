@@ -1176,8 +1176,20 @@ def show_qr_page(pid):
     elif QR_AVAILABLE:
         qr_html = f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["red"]};margin:12px 0;">Could not generate QR code.</div>'
 
+    _qr_img_html = ""
+    if p.get("product_image"):
+        _qr_img_html = (
+            f'<div style="text-align:center;margin-bottom:14px;">'
+            f'<img src="data:image/jpeg;base64,{p["product_image"]}" '
+            f'style="max-width:180px;max-height:180px;object-fit:cover;border-radius:12px;'
+            f'box-shadow:0 4px 18px rgba(0,0,0,0.12);border:1px solid {C["paperEdge"]};" />'
+            f'</div>'
+        )
+
     # All content in a single flat HTML block (no inner card — the container IS the card)
     st.markdown(
+        # Product image (if uploaded)
+        f'{_qr_img_html}'
         # Product info
         f'<div style="border-left:3px solid {C["wine2"]};padding-left:14px;margin-bottom:14px;">'
         f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
