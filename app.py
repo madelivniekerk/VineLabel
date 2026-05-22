@@ -65,24 +65,34 @@ DATA_DIR.mkdir(exist_ok=True)
 def load_products():
     if not PRODUCTS_FILE.exists():
         return []
-    with open(PRODUCTS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(PRODUCTS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return []
 
 def save_products(products):
-    with open(PRODUCTS_FILE, "w", encoding="utf-8") as f:
+    tmp = PRODUCTS_FILE.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(products, f, indent=2, ensure_ascii=False)
+    tmp.replace(PRODUCTS_FILE)
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
 def load_settings():
     if not SETTINGS_FILE.exists():
         return {}
-    with open(SETTINGS_FILE, encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return {}
 
 def save_settings(settings):
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+    tmp = SETTINGS_FILE.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2)
+    tmp.replace(SETTINGS_FILE)
 
 def get_product(pid):
     return next((p for p in load_products() if p["id"] == pid), None)
@@ -1161,46 +1171,46 @@ def show_qr_page(pid):
 
     # Pre-compute QR bytes so we can embed image + use download button
     qr_bytes = make_qr_image(label_url) if QR_AVAILABLE else None
-    qr_html = ""
+    qr_img_html = ""
+    eu_notice_html = ""
     if qr_bytes:
         b64 = base64.b64encode(qr_bytes).decode()
-        qr_html = (
-            f'<div style="text-align:center;padding:8px 0 16px;">'
-            f'<img src="data:image/png;base64,{b64}" style="width:200px;height:200px;border-radius:10px;" />'
-            f'</div>'
-            f'<div style="background:{C["cream"]};border:1px solid {C["eu"]}40;border-radius:10px;padding:10px 14px;margin-bottom:16px;">'
+        qr_img_html = f'<img src="data:image/png;base64,{b64}" style="width:200px;height:200px;border-radius:10px;display:block;" />'
+        eu_notice_html = (
+            f'<div style="background:{C["cream"]};border:1px solid {C["eu"]}40;border-radius:10px;padding:10px 14px;margin-top:16px;">'
             f'<span style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.12em;color:{C["eu"]};text-transform:uppercase;">EU Print Requirement</span>'
             f'<div style="font-family:DM Sans,sans-serif;font-size:12px;color:{C["ink"]};margin-top:3px;">Minimum print size: <strong>13 × 13 mm at 300 DPI</strong> as required by EU Reg. 2021/2117.</div>'
             f'</div>'
         )
     elif QR_AVAILABLE:
-        qr_html = f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["red"]};margin:12px 0;">Could not generate QR code.</div>'
+        qr_img_html = f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["red"]};margin:12px 0;">Could not generate QR code.</div>'
 
-    _qr_img_html = ""
-    if p.get("product_image"):
-        _qr_img_html = (
-            f'<div style="text-align:center;margin-bottom:14px;">'
-            f'<img src="data:image/jpeg;base64,{p["product_image"]}" '
-            f'style="max-width:180px;max-height:180px;object-fit:cover;border-radius:12px;'
-            f'box-shadow:0 4px 18px rgba(0,0,0,0.12);border:1px solid {C["paperEdge"]};" />'
-            f'</div>'
-        )
+    # Thumbnail next to product name (if image uploaded)
+    _thumb_html = (
+        f'<img src="data:image/jpeg;base64,{p["product_image"]}" '
+        f'style="width:80px;height:80px;object-fit:cover;border-radius:10px;flex-shrink:0;'
+        f'box-shadow:0 2px 8px rgba(0,0,0,0.12);border:1px solid {C["paperEdge"]};" />'
+    ) if p.get("product_image") else ""
 
-    # All content in a single flat HTML block (no inner card — the container IS the card)
+    # All content in a single flat HTML block
     st.markdown(
-        # Product image (if uploaded)
-        f'{_qr_img_html}'
-        # Product info
-        f'<div style="border-left:3px solid {C["wine2"]};padding-left:14px;margin-bottom:14px;">'
+        # Product info row — thumbnail left, name/producer right
+        f'<div style="display:flex;align-items:flex-start;gap:14px;'
+        f'border-left:3px solid {C["wine2"]};padding-left:14px;margin-bottom:14px;">'
+        f'{_thumb_html}'
+        f'<div style="flex:1;min-width:0;">'
         f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
         f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:2px;">{p.get("producer_name","")}</div>'
         f'{_compliance_badges_html(p)}'
         f'</div>'
+        f'</div>'
         f'<div style="border-top:1px solid {C["paperEdge"]};margin:0 0 16px;"></div>'
-        # QR code + EU notice
-        f'{qr_html}'
+        # QR code centred
+        f'<div style="display:flex;justify-content:center;padding:8px 0;">{qr_img_html}</div>'
+        # EU notice below QR
+        f'{eu_notice_html}'
         # Label URL
-        f'<div style="border-top:1px solid {C["paperEdge"]};margin:0 0 14px;"></div>'
+        f'<div style="border-top:1px solid {C["paperEdge"]};margin:16px 0 14px;"></div>'
         f'<div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink2"]};text-transform:uppercase;margin-bottom:6px;">Label URL</div>'
         f'<div style="font-family:JetBrains Mono,monospace;font-size:12px;color:{C["ink"]};word-break:break-all;">{label_url}</div>',
         unsafe_allow_html=True
