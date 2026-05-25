@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VineLabel — New Product</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #15110d;
+    --ink-soft: #2a221a;
+    --paper: #f3ead9;
+    --paper-card: #f6efe0;
+    --paper-input: #ede2c8;
+    --paper-deep: #ece1c8;
+    --wine: #7a1d24;
+    --wine-bright: #9c2731;
+    --gold: #c89a5a;
+    --olive: #4f6b3a;
+    --muted: #b7a786;
+    --muted-dark: #6e5a3d;
+    --line: rgba(40,28,18,0.12);
+    --line-strong: rgba(40,28,18,0.22);
+    --shadow-card: 0 12px 30px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background: #0c0907;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- stage (matches landing) ---------- */
+  .stage {
+    position: relative;
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    background-image: url('assets/wine-bg.jpg');
+    background-size: cover;
+    background-position: center right;
+    background-repeat: no-repeat;
+    background-color: #1a0f08;
+  }
+  .stage::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.78) 28%, rgba(12,8,6,0.25) 55%, rgba(12,8,6,0.05) 80%),
+      radial-gradient(ellipse at 18% 50%, rgba(0,0,0,0.55) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .stage::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- nav (matches dashboard) ---------- */
+  .nav {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 56px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+  .logo-mark {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--wine);
+    color: var(--paper);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif;
+    font-size: 22px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--paper); }
+  .logo-sub { font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .nav-link { font-size: 14px; color: rgba(243,234,217,0.7); text-decoration: none; padding: 8px 4px; }
+  .nav-link:hover { color: var(--paper); }
+  .nav-link.is-active { color: var(--paper); border-bottom: 1px solid var(--gold); padding-bottom: 4px; }
+
+  .user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border: 1px solid rgba(243,234,217,0.22);
+    border-radius: 999px;
+    background: rgba(243,234,217,0.04);
+    cursor: pointer;
+    color: var(--paper);
+  }
+  .user:hover { background: rgba(243,234,217,0.1); }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gold);
+    color: var(--ink);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif;
+    font-size: 15px;
+  }
+  .user-name { font-size: 13px; }
+  .user-caret { font-size: 10px; opacity: 0.7; }
+
+  /* ---------- page ---------- */
+  .page {
+    position: relative; z-index: 2;
+    padding: 12px 56px 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 780px) minmax(0, 1fr);
+    gap: 40px;
+    height: calc(100vh - 88px);
+    min-height: 0;
+  }
+
+  .left-col { display: flex; flex-direction: column; min-height: 0; }
+
+  /* breadcrumb above the card */
+  .crumbs {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: rgba(243,234,217,0.55);
+    flex: 0 0 auto;
+  }
+  .crumbs a { color: rgba(243,234,217,0.85); text-decoration: none; }
+  .crumbs a:hover { color: var(--paper); }
+  .crumbs .sep { opacity: 0.5; }
+
+  /* ---------- form card ---------- */
+  .form-card {
+    background: var(--paper-card);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .form-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-color: rgba(122,29,36,0.4) transparent;
+  }
+  .form-scroll::-webkit-scrollbar { width: 10px; }
+  .form-scroll::-webkit-scrollbar-track { background: transparent; }
+  .form-scroll::-webkit-scrollbar-thumb { background: rgba(122,29,36,0.35); border-radius: 999px; border: 2px solid var(--paper-card); }
+  .form-scroll::-webkit-scrollbar-thumb:hover { background: rgba(122,29,36,0.55); }
+
+  .form-head {
+    display: flex; align-items: center; gap: 18px;
+    padding: 22px 28px 22px;
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .back-btn {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 18px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .back-btn:hover { background: rgba(0,0,0,0.04); }
+  .head-title {
+    font-family: 'Gloock', serif;
+    font-size: 32px;
+    line-height: 1.05;
+    margin: 0;
+    flex: 1;
+  }
+  .head-eye {
+    font-family: 'Caveat', cursive;
+    color: var(--wine);
+    font-size: 22px;
+  }
+
+  /* ---------- section ---------- */
+  .section { padding: 26px 28px 30px; border-bottom: 1px solid var(--line); }
+  .section:last-of-type { border-bottom: none; }
+
+  .section-head {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 18px;
+  }
+  .section-num {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--wine);
+    white-space: nowrap;
+  }
+  .section-num .dash { opacity: 0.5; margin: 0 6px; }
+
+  /* fields */
+  .grid {
+    display: grid;
+    gap: 14px 16px;
+    grid-template-columns: 1fr 1fr;
+  }
+  .grid > .full { grid-column: 1 / -1; }
+  .grid > .two-thirds { grid-column: span 1; }
+  .grid.thirds { grid-template-columns: 1fr 1fr 1fr; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .label {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .label > .label-text { display: inline-flex; align-items: baseline; }
+  .label .req { color: var(--wine); margin-left: 2px; }
+  .help {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 1px solid var(--line-strong);
+    color: var(--muted-dark);
+    display: inline-grid; place-items: center;
+    font-size: 11px;
+    cursor: help;
+    background: transparent;
+    flex: 0 0 auto;
+  }
+  .help:hover { color: var(--ink); background: rgba(0,0,0,0.04); }
+
+  .control {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-input);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    color: var(--ink-soft);
+    transition: border-color .12s ease, box-shadow .12s ease;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .control::placeholder { color: rgba(106,86,52,0.6); }
+  .control:focus {
+    outline: none;
+    border-color: var(--wine);
+    box-shadow: 0 0 0 3px rgba(122,29,36,0.15);
+  }
+  textarea.control { resize: vertical; min-height: 92px; line-height: 1.5; }
+  select.control {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path fill='none' stroke='%232a221a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='M1 1.5l5 5 5-5'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 38px;
+  }
+
+  /* tag input (read-only display style) */
+  .tags {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-input);
+    min-height: 46px;
+    align-items: center;
+  }
+  .tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(122,29,36,0.1);
+    color: var(--wine);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .tag .x { color: var(--wine); opacity: 0.7; cursor: pointer; font-size: 12px; }
+  .tag-input-blank { color: rgba(106,86,52,0.6); font-size: 14px; }
+
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; }
+  .checks.three { grid-template-columns: 1fr 1fr 1fr; }
+  .check-row { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-soft); cursor: pointer; }
+  .check-row input { accent-color: var(--wine); width: 16px; height: 16px; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--muted-dark);
+    line-height: 1.5;
+    margin: 4px 2px 0;
+  }
+
+  /* progress chip in head */
+  .save-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--muted-dark);
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.04);
+    border-radius: 999px;
+  }
+  .save-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--olive); box-shadow: 0 0 0 3px rgba(79,107,58,0.18); }
+
+  /* ---------- footer / actions ---------- */
+  .form-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+    padding: 18px 28px;
+    background: rgba(0,0,0,0.025);
+    border-top: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .footer-meta { font-size: 13px; color: var(--muted-dark); }
+  .footer-actions { display: flex; gap: 10px; align-items: center; }
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 11px 18px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease, border-color .12s ease;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-ghost { color: var(--ink-soft); border-color: var(--line); background: transparent; }
+  .btn-ghost:hover { background: rgba(0,0,0,0.04); }
+  .btn-secondary { color: var(--ink); border-color: var(--line-strong); background: transparent; }
+  .btn-secondary:hover { background: rgba(0,0,0,0.04); }
+  .btn-primary {
+    color: var(--paper);
+    background: var(--wine);
+    border-color: var(--wine);
+    box-shadow: 0 8px 20px rgba(122,29,36,0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .btn-primary:hover { background: var(--wine-bright); border-color: var(--wine-bright); transform: translateY(-1px); }
+
+  /* stepper rail above sections (compact) */
+  .steps {
+    display: flex; align-items: center; gap: 0;
+    padding: 18px 28px 4px;
+    background: linear-gradient(180deg, rgba(122,29,36,0.04), transparent);
+    border-bottom: 1px dashed var(--line);
+    overflow-x: auto;
+  }
+  .step {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px;
+    font-size: 13px;
+    color: var(--muted-dark);
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    white-space: nowrap;
+  }
+  .step .n {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.06);
+    color: var(--muted-dark);
+    display: grid; place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+  }
+  .step.is-active { color: var(--wine); border-bottom-color: var(--wine); font-weight: 600; }
+  .step.is-active .n { background: var(--wine); color: var(--paper); }
+  .step.is-done .n { background: rgba(79,107,58,0.15); color: var(--olive); }
+  .step.is-done .n::after { content: '✓'; }
+  .step.is-done .n > span { display: none; }
+
+  /* right side: empty so bottle shows */
+  .right-spacer { position: relative; }
+
+  /* responsive */
+  @media (max-width: 1100px) {
+    .stage { background-position: 70% center; height: auto; min-height: 100vh; overflow: visible; }
+    .stage::before {
+      background:
+        linear-gradient(180deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.88) 40%, rgba(12,8,6,0.92) 100%);
+    }
+    .page { grid-template-columns: 1fr; padding: 12px 24px 60px; height: auto; }
+    .form-card { height: auto; }
+    .form-scroll { overflow: visible; max-height: none; }
+    .right-spacer { display: none; }
+    .nav { padding: 18px 24px; }
+  }
+  @media (max-width: 640px) {
+    .grid, .grid.thirds, .checks, .checks.three { grid-template-columns: 1fr; }
+    .form-head, .section, .form-footer { padding-left: 18px; padding-right: 18px; }
+    .head-title { font-size: 26px; }
+    .head-eye { display: none; }
+    .nav-link { display: none; }
+    .user-name { display: none; }
+    .footer-actions { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <nav class="nav" aria-label="Primary">
+    <a class="logo" href="dashboard.html">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <div class="logo-name">VineLabel</div>
+        <div class="logo-sub">EU DPP STUDIO</div>
+      </div>
+    </a>
+    <div class="nav-right">
+      <a class="nav-link is-active" href="dashboard.html">Products</a>
+      <a class="nav-link" href="#">Compliance</a>
+      <a class="nav-link" href="#">Help</a>
+      <button class="user" type="button" aria-label="Account menu">
+        <span class="avatar">S</span>
+        <span class="user-name">Springvale Estate</span>
+        <span class="user-caret">▾</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="page">
+
+    <section class="left-col">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="dashboard.html">Products</a>
+        <span class="sep">/</span>
+        <span>New product</span>
+      </nav>
+
+      <form class="form-card" autocomplete="off" onsubmit="event.preventDefault();">
+
+        <div class="form-head">
+          <a class="back-btn" href="dashboard.html" aria-label="Back to products">←</a>
+          <h1 class="head-title">New Product</h1>
+          <span class="head-eye">a fresh label</span>
+          <span class="save-chip"><span class="dot"></span>Draft saved</span>
+        </div>
+
+        <div class="form-scroll">
+
+        <!-- step rail -->
+        <div class="steps" role="tablist" aria-label="Form steps">
+          <div class="step is-active"><span class="n">1</span>Product identity</div>
+          <div class="step"><span class="n">2</span>Composition</div>
+          <div class="step"><span class="n">3</span>Nutrition</div>
+          <div class="step"><span class="n">4</span>Sustainability</div>
+          <div class="step"><span class="n">5</span>Importer &amp; QR</div>
+        </div>
+
+        <!-- 1. PRODUCT IDENTITY -->
+        <fieldset class="section" id="section-1">
+          <div class="section-head">
+            <div class="section-num">1<span class="dash">—</span>Product identity</div>
+          </div>
+
+          <div class="grid">
+            <div class="field" style="grid-column: span 1; grid-column-end: span 1;">
+              <label class="label" for="wine-name"><span class="label-text">Wine name<span class="req"> *</span></span></label>
+              <input id="wine-name" class="control" type="text" placeholder="e.g. Barossa Valley Shiraz" />
+            </div>
+            <div class="field">
+              <label class="label" for="vintage"><span class="label-text">Vintage</span></label>
+              <input id="vintage" class="control" type="text" placeholder="2022" />
+            </div>
+
+            <div class="field full">
+              <label class="label" for="category">
+                <span class="label-text">Product category<span class="req"> *</span></span>
+                <button type="button" class="help" aria-label="What is this?">?</button>
+              </label>
+              <select id="category" class="control">
+                <option>Wine</option>
+                <option>Sparkling wine</option>
+                <option>Fortified wine</option>
+                <option>Dealcoholised wine</option>
+                <option>Aromatised wine</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label class="label" for="grape"><span class="label-text">Grape variety</span></label>
+              <input id="grape" class="control" type="text" placeholder="Shiraz, Grenache" />
+            </div>
+            <div class="field">
+              <label class="label" for="region"><span class="label-text">Region / appellation</span></label>
+              <input id="region" class="control" type="text" placeholder="Barossa Valley" />
+            </div>
+
+            <div class="field full">
+              <label class="label" for="pdo">
+                <span class="label-text">PDO / PGI designation</span>
+                <button type="button" class="help" aria-label="What is this?">?</button>
+              </label>
+              <input id="pdo" class="control" type="text" placeholder="e.g. Barossa Valley GI · Protected Geographical Indication" />
+            </div>
+
+            <div class="field">
+              <label class="label" for="producer"><span class="label-text">Winery / producer<span class="req"> *</span></span></label>
+              <input id="producer" class="control" type="text" placeholder="e.g. Penfolds" />
+            </div>
+            <div class="field">
+              <label class="label" for="country"><span class="label-text">Country of origin</span></label>
+              <input id="country" class="control" type="text" value="Australia" />
+            </div>
+
+            <div class="field full">
+              <label class="label" for="address"><span class="label-text">Producer address</span></label>
+              <input id="address" class="control" type="text" placeholder="Street, City, State, Postcode" />
+            </div>
+
+            <div class="field full">
+              <label class="label" for="range">
+                <span class="label-text">Range / Collection</span>
+                <button type="button" class="help" aria-label="What is this?">?</button>
+              </label>
+              <input id="range" class="control" type="text" placeholder="e.g. Single-Vineyard Reserve" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 2. COMPOSITION -->
+        <fieldset class="section" id="section-2">
+          <div class="section-head">
+            <div class="section-num">2<span class="dash">—</span>Composition</div>
+          </div>
+
+          <div class="grid">
+            <div class="field">
+              <label class="label" for="abv"><span class="label-text">Alcohol by volume (%)<span class="req"> *</span></span></label>
+              <input id="abv" class="control" type="text" placeholder="14.5" />
+            </div>
+            <div class="field">
+              <label class="label" for="volume"><span class="label-text">Net volume (ml)<span class="req"> *</span></span></label>
+              <input id="volume" class="control" type="text" placeholder="750" />
+            </div>
+
+            <div class="field full">
+              <label class="label"><span class="label-text">Ingredients<span class="req"> *</span></span></label>
+              <div class="tags" role="list">
+                <span class="tag">Grapes <span class="x">×</span></span>
+                <span class="tag">Sulphites (SO₂) <span class="x">×</span></span>
+                <span class="tag-input-blank">+ Add ingredient (oak chips, yeast, fining agents…)</span>
+              </div>
+              <div class="hint">Order matters — list in descending quantity. Required by EU regulation 2021/2117.</div>
+            </div>
+
+            <div class="field full">
+              <label class="label"><span class="label-text">Allergens<span class="req"> *</span></span></label>
+              <div class="checks three">
+                <label class="check-row"><input type="checkbox" checked /> Sulphites</label>
+                <label class="check-row"><input type="checkbox" /> Egg (lysozyme)</label>
+                <label class="check-row"><input type="checkbox" /> Milk (casein)</label>
+                <label class="check-row"><input type="checkbox" /> Fish (isinglass)</label>
+                <label class="check-row"><input type="checkbox" /> Tree nuts</label>
+                <label class="check-row"><input type="checkbox" /> None of the above</label>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 3. NUTRITION -->
+        <fieldset class="section" id="section-3">
+          <div class="section-head">
+            <div class="section-num">3<span class="dash">—</span>Nutrition declaration (per 100 ml)</div>
+          </div>
+
+          <div class="grid thirds">
+            <div class="field">
+              <label class="label" for="energy-kj"><span class="label-text">Energy (kJ)<span class="req"> *</span></span></label>
+              <input id="energy-kj" class="control" type="text" placeholder="340" />
+            </div>
+            <div class="field">
+              <label class="label" for="energy-kcal"><span class="label-text">Energy (kcal)<span class="req"> *</span></span></label>
+              <input id="energy-kcal" class="control" type="text" placeholder="81" />
+            </div>
+            <div class="field">
+              <label class="label" for="fat"><span class="label-text">Fat (g)</span></label>
+              <input id="fat" class="control" type="text" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="label" for="sat-fat"><span class="label-text">— of which saturates (g)</span></label>
+              <input id="sat-fat" class="control" type="text" placeholder="0" />
+            </div>
+            <div class="field">
+              <label class="label" for="carbs"><span class="label-text">Carbohydrate (g)</span></label>
+              <input id="carbs" class="control" type="text" placeholder="2.7" />
+            </div>
+            <div class="field">
+              <label class="label" for="sugar"><span class="label-text">— of which sugars (g)</span></label>
+              <input id="sugar" class="control" type="text" placeholder="0.6" />
+            </div>
+            <div class="field">
+              <label class="label" for="protein"><span class="label-text">Protein (g)</span></label>
+              <input id="protein" class="control" type="text" placeholder="0.1" />
+            </div>
+            <div class="field">
+              <label class="label" for="salt"><span class="label-text">Salt (g)</span></label>
+              <input id="salt" class="control" type="text" placeholder="0.01" />
+            </div>
+            <div class="field">
+              <label class="label" for="ref"><span class="label-text">Lab reference</span></label>
+              <input id="ref" class="control" type="text" placeholder="upload PDF in step 5" />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 4. SUSTAINABILITY & PACKAGING -->
+        <fieldset class="section" id="section-4">
+          <div class="section-head">
+            <div class="section-num">4<span class="dash">—</span>Sustainability &amp; packaging</div>
+          </div>
+
+          <div class="grid">
+            <div class="field">
+              <label class="label" for="bottle"><span class="label-text">Bottle material</span></label>
+              <select id="bottle" class="control">
+                <option>Glass — recyclable</option>
+                <option>Glass — recycled content</option>
+                <option>Lightweight glass</option>
+                <option>PET</option>
+                <option>Aluminium</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="label" for="closure"><span class="label-text">Closure type</span></label>
+              <select id="closure" class="control">
+                <option>Natural cork</option>
+                <option>Agglomerated cork</option>
+                <option>Screw cap (aluminium)</option>
+                <option>Glass stopper</option>
+                <option>Crown cap</option>
+              </select>
+            </div>
+
+            <div class="field full">
+              <label class="label"><span class="label-text">Recycling instructions (displayed on consumer page)</span></label>
+              <div class="checks">
+                <label class="check-row"><input type="checkbox" checked /> Glass bottle — bottle bank</label>
+                <label class="check-row"><input type="checkbox" checked /> Cork — compost or kerbside</label>
+                <label class="check-row"><input type="checkbox" /> Capsule (foil) — recycle with metals</label>
+                <label class="check-row"><input type="checkbox" /> Paper label — kerbside paper</label>
+              </div>
+            </div>
+
+            <div class="field full">
+              <label class="label" for="cert"><span class="label-text">Certifications</span></label>
+              <div class="tags">
+                <span class="tag">Sustainable Winegrowing Australia <span class="x">×</span></span>
+                <span class="tag">Vegan <span class="x">×</span></span>
+                <span class="tag-input-blank">+ Add (Organic, Biodynamic, B-Corp…)</span>
+              </div>
+            </div>
+
+            <div class="field full">
+              <label class="label" for="note"><span class="label-text">Sustainability story <span style="color:var(--muted-dark);font-weight:400">(optional, up to 220 chars)</span></span></label>
+              <textarea id="note" class="control" placeholder="e.g. Estate-grown, dry-grown vines, fermented with native yeasts. Solar-powered cellar."></textarea>
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 5. IMPORTER & QR -->
+        <fieldset class="section" id="section-5">
+          <div class="section-head">
+            <div class="section-num">5<span class="dash">—</span>EU Importer &amp; QR code</div>
+          </div>
+
+          <div class="grid">
+            <div class="field full">
+              <label class="label" for="importer-name">
+                <span class="label-text">EU importer name<span class="req"> *</span></span>
+                <button type="button" class="help" aria-label="What is this?">?</button>
+              </label>
+              <input id="importer-name" class="control" type="text" placeholder="e.g. Wine Imports GmbH" />
+              <div class="hint">Required for any wine sold in the EU. Must appear on the physical label and the e-label consumer page.</div>
+            </div>
+
+            <div class="field full">
+              <label class="label" for="importer-address"><span class="label-text">EU importer address<span class="req"> *</span></span></label>
+              <input id="importer-address" class="control" type="text" placeholder="e.g. Weinstraße 12, 10115 Berlin, Germany" />
+            </div>
+
+            <div class="field">
+              <label class="label" for="website"><span class="label-text">Producer website</span></label>
+              <input id="website" class="control" type="url" placeholder="https://www.mywinery.com.au" />
+            </div>
+            <div class="field">
+              <label class="label" for="rrp"><span class="label-text">RRP (optional)</span></label>
+              <input id="rrp" class="control" type="text" placeholder="e.g. A$28.00" />
+            </div>
+
+            <div class="field full" style="background:rgba(200,154,90,0.07);border:1px solid rgba(200,154,90,0.25);border-radius:12px;padding:20px 18px;margin-top:8px;">
+              <div style="font-family:'Gloock',serif;font-size:17px;color:var(--ink);margin-bottom:6px;">Ready to generate your QR code?</div>
+              <div style="font-size:13px;color:var(--muted-dark);line-height:1.6;margin-bottom:16px;">
+                Save your label in the VineLabel app to generate a print-ready QR code and a hosted multilingual consumer page — compliant with EU Reg. 2021/2117.
+              </div>
+              <a href="https://vinelabel-app.streamlit.app" target="_blank" rel="noopener"
+                 style="display:inline-flex;align-items:center;gap:8px;background:var(--wine);color:var(--paper);font-family:'Inter',sans-serif;font-size:14px;font-weight:600;padding:12px 20px;border-radius:10px;text-decoration:none;box-shadow:0 4px 14px rgba(122,29,36,0.35);">
+                Save &amp; generate QR in VineLabel →
+              </a>
+            </div>
+          </div>
+        </fieldset>
+
+        </div><!-- /form-scroll -->
+
+        <!-- Footer -->
+        <div class="form-footer">
+          <div class="footer-meta">Step 1 of 5 · draft saved</div>
+          <div class="footer-actions">
+            <button type="button" class="btn btn-ghost">Save &amp; close</button>
+            <button type="button" class="btn btn-secondary">Preview label</button>
+            <button type="button" class="btn btn-primary">Continue → Composition</button>
+          </div>
+        </div>
+
+      </form>
+    </section>
+
+    <aside class="right-spacer" aria-hidden="true"></aside>
+
+  </main>
+
+</div>
+
+<script>
+(function () {
+  var STEP_NAMES = ['Product identity', 'Composition', 'Nutrition', 'Sustainability', 'Importer & QR'];
+  var TOTAL = STEP_NAMES.length;
+  var current = 1;
+
+  var stepEls    = document.querySelectorAll('.step');
+  var footerMeta = document.querySelector('.footer-meta');
+  var continueBtn = document.querySelector('.btn-primary');
+  var saveBtn     = document.querySelector('.btn-ghost');
+  var previewBtn  = document.querySelector('.btn-secondary');
+  var formScroll  = document.querySelector('.form-scroll');
+
+  function getSection(n) { return document.getElementById('section-' + n); }
+
+  function goTo(n) {
+    if (n < 1 || n > TOTAL) return;
+    current = n;
+
+    /* show/hide sections */
+    for (var i = 1; i <= TOTAL; i++) {
+      var s = getSection(i);
+      if (s) s.style.display = (i === n) ? '' : 'none';
+    }
+
+    /* step rail */
+    stepEls.forEach(function (el, idx) {
+      el.classList.toggle('is-active', idx + 1 === n);
+      el.classList.toggle('is-done',   idx + 1 < n);
+    });
+
+    /* footer text */
+    footerMeta.textContent = 'Step ' + n + ' of ' + TOTAL + ' · draft saved';
+
+    /* continue button label */
+    if (n < TOTAL) {
+      continueBtn.textContent = 'Continue → ' + STEP_NAMES[n];
+    } else {
+      continueBtn.textContent = 'Generate QR & publish';
+    }
+
+    /* scroll form back to top */
+    if (formScroll) formScroll.scrollTop = 0;
+  }
+
+  /* initialise — hide all but step 1 */
+  goTo(1);
+
+  /* continue / finish */
+  continueBtn.addEventListener('click', function () {
+    if (current < TOTAL) {
+      goTo(current + 1);
+    } else {
+      window.location.href = 'qr.html';
+    }
+  });
+
+  /* save & close */
+  saveBtn.addEventListener('click', function () {
+    window.location.href = 'dashboard.html';
+  });
+
+  /* preview */
+  previewBtn.addEventListener('click', function () {
+    window.location.href = 'qr.html';
+  });
+
+  /* clicking a step rail item jumps directly */
+  stepEls.forEach(function (el, idx) {
+    el.style.cursor = 'pointer';
+    el.addEventListener('click', function () { goTo(idx + 1); });
+  });
+})();
+</script>
+</body>
+</html>

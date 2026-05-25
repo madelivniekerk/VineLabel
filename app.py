@@ -3,13 +3,20 @@ import json
 import uuid
 import io
 import base64
+import os
 from pathlib import Path
 from datetime import datetime, date
+
+try:
+    import anthropic as _anthropic
+    ANTHROPIC_AVAILABLE = True
+except ImportError:
+    ANTHROPIC_AVAILABLE = False
 
 def _wood_texture_b64():
     # SVG from cellar-handoff/direction-cellar.jsx
     svg = (
-        "<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800' viewBox='0 0 1200 800'>"
+        "<svg xmlns='http://www.w3.org/2000/svg' width='1800' height='1200' viewBox='0 0 1800 1200'>"
         "<defs>"
         "<filter id='w' x='0' y='0' width='100%' height='100%'>"
         "<feTurbulence type='turbulence' baseFrequency='0.012 0.55' numOctaves='3' seed='7'/>"
@@ -24,14 +31,14 @@ def _wood_texture_b64():
         "<rect width='100%' height='100%' filter='url(#w)' opacity='0.85'/>"
         "<rect width='100%' height='100%' filter='url(#knots)'/>"
         "<g stroke='#150806' stroke-opacity='0.55' stroke-width='1'>"
-        "<line x1='0' y1='160' x2='1200' y2='160'/>"
-        "<line x1='0' y1='420' x2='1200' y2='420'/>"
-        "<line x1='0' y1='640' x2='1200' y2='640'/>"
+        "<line x1='0' y1='240' x2='1800' y2='240'/>"
+        "<line x1='0' y1='630' x2='1800' y2='630'/>"
+        "<line x1='0' y1='960' x2='1800' y2='960'/>"
         "</g>"
         "<g stroke='#150806' stroke-opacity='0.25' stroke-width='1'>"
-        "<line x1='0' y1='161' x2='1200' y2='161'/>"
-        "<line x1='0' y1='421' x2='1200' y2='421'/>"
-        "<line x1='0' y1='641' x2='1200' y2='641'/>"
+        "<line x1='0' y1='241' x2='1800' y2='241'/>"
+        "<line x1='0' y1='631' x2='1800' y2='631'/>"
+        "<line x1='0' y1='961' x2='1800' y2='961'/>"
         "</g>"
         "</svg>"
     )
@@ -56,6 +63,8 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+PRODUCER_NAME = "Madeli"  # placeholder — replace with auth user profile
 
 DATA_DIR = Path(__file__).parent / "data"
 PRODUCTS_FILE = DATA_DIR / "products.json"
@@ -192,29 +201,104 @@ def make_qr_image(url):
     img.save(buf, format="PNG")
     return buf.getvalue()
 
+# ── AI helpers ────────────────────────────────────────────────────────────────
+def _get_api_key():
+    try:
+        return st.secrets.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_API_KEY")
+    except Exception:
+        return os.environ.get("ANTHROPIC_API_KEY")
+
+def ai_detect_allergens(ingredients):
+    if not ANTHROPIC_AVAILABLE or not _get_api_key():
+        return []
+    try:
+        client = _anthropic.Anthropic(api_key=_get_api_key())
+        msg = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=150,
+            messages=[{"role": "user", "content": (
+                "You are an EU food labelling expert. Given these wine ingredients, "
+                "identify which EU-regulated allergens must be declared.\n\n"
+                f"Ingredients: {', '.join(ingredients)}\n\n"
+                "EU allergens relevant to wine: Sulphites (from sulfur dioxide, "
+                "potassium metabisulphite, etc.), Eggs (albumin, lysozyme), "
+                "Milk (casein, lactose), Fish (isinglass).\n\n"
+                "Reply with ONLY a JSON array using these exact strings where applicable: "
+                '["Sulphites", "Egg (albumin fining agent)", '
+                '"Milk (casein fining agent)", "Fish (isinglass fining agent)"]. '
+                "Return [] if none detected."
+            )}]
+        )
+        return json.loads(msg.content[0].text.strip())
+    except Exception:
+        return []
+
+def ai_translate_label(product, languages=("de", "fr", "it", "es")):
+    if not ANTHROPIC_AVAILABLE or not _get_api_key():
+        return {}
+    LANG_NAMES = {"de": "German", "fr": "French", "it": "Italian", "es": "Spanish"}
+    to_translate = {}
+    if product.get("ingredients"):
+        to_translate["ingredients"] = ", ".join(product["ingredients"])
+    if product.get("allergens"):
+        to_translate["allergens"] = ", ".join(product["allergens"])
+    pkg = product.get("packaging", {})
+    if pkg and pkg.get("recycling_instructions"):
+        to_translate["recycling_instructions"] = pkg["recycling_instructions"]
+    if product.get("storage_info"):
+        to_translate["storage_info"] = product["storage_info"]
+    if not to_translate:
+        return {}
+    results = {}
+    client = _anthropic.Anthropic(api_key=_get_api_key())
+    for lang in languages:
+        try:
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=600,
+                messages=[{"role": "user", "content": (
+                    f"Translate the following wine label fields into {LANG_NAMES[lang]} "
+                    "for EU regulatory compliance labelling.\n"
+                    "Rules: keep E-numbers (E220, E334, etc.) unchanged. "
+                    "Keep brand names and proper nouns unchanged. "
+                    "Be precise — this is regulatory text.\n\n"
+                    f"Fields:\n{json.dumps(to_translate, ensure_ascii=False)}\n\n"
+                    f"Reply with ONLY a JSON object with the same keys, values in {LANG_NAMES[lang]}."
+                )}]
+            )
+            results[lang] = json.loads(msg.content[0].text.strip())
+        except Exception:
+            results[lang] = {}
+    return results
+
 # ── Design ────────────────────────────────────────────────────────────────────
 C = {
-    # Cellar palette from direction-cellar.jsx
-    "wine":    "#7A1F2B",   # burgundy
-    "wine2":   "#9C2A38",   # burgundy2
-    "wineDim": "#5C1620",   # burgundyDim
-    "bg":      "#F6EFE0",   # parchment paper
-    "paper":   "#F6EFE0",
-    "paperEdge":"#E8DBC1",
-    "cream":   "#FAF6F0",
-    "ink":     "#2A1F16",
-    "ink2":    "#6E5F4E",
-    "ink3":    "#9C8E7D",
-    "ink60":   "rgba(42,31,22,0.6)",
-    "ink12":   "rgba(42,31,22,0.12)",
-    "ink08":   "rgba(42,31,22,0.08)",
-    "gold":    "#B89455",
-    "goldSoft":"#F1E6CD",
-    "green":   "#5C6B3A",   # olive
-    "greenSoft":"#E6E8D8",
+    # Design tokens from design_handoff_vinelabel
+    "wine":    "#7a1d24",
+    "wine2":   "#9c2731",
+    "wineDim": "#5a1520",
+    "bg":      "#f6efe0",
+    "paper":   "#f3ead9",
+    "paperCard":"#f6efe0",
+    "paperDeep":"#ece1c8",
+    "paperEdge":"#e0d4b8",
+    "cream":   "#f3ead9",
+    "ink":     "#15110d",
+    "inkSoft": "#2a221a",
+    "ink2":    "#6e5a3d",
+    "ink3":    "#b7a786",
+    "ink60":   "rgba(21,17,13,0.6)",
+    "ink12":   "rgba(40,28,18,0.12)",
+    "ink08":   "rgba(40,28,18,0.08)",
+    "gold":    "#c89a5a",
+    "goldSoft":"#f1e6cd",
+    "green":   "#4f6b3a",
+    "greenSoft":"#e6e8d8",
     "eu":      "#2A4F6B",
     "red":     "#A93527",
-    "woodDark":"#2a1a10",
+    "woodDark":"#0c0907",
+    "muted":   "#b7a786",
+    "mutedDark":"#6e5a3d",
 }
 
 def load_hero():
@@ -225,13 +309,144 @@ def load_hero():
                 return base64.b64encode(f.read()).decode()
     return None
 
+def show_landing():
+    wine_bg = _load_asset_b64("wine-bg.jpg")
+    bg_img  = f'url("data:image/jpeg;base64,{wine_bg}")' if wine_bg else "none"
+    st.markdown(f"""
+<style>
+html{{
+    background-image:
+        radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%),
+        linear-gradient(95deg,rgba(12,8,6,0.92) 0%,rgba(12,8,6,0.78) 28%,rgba(12,8,6,0.25) 55%,rgba(12,8,6,0.05) 80%),
+        radial-gradient(ellipse at 18% 50%,rgba(0,0,0,0.55) 0%,transparent 60%),
+        {bg_img}!important;
+    background-size:cover!important;
+    background-position:center right!important;
+    background-color:#1a0f08!important;
+    background-repeat:no-repeat!important;
+    background-attachment:fixed!important;
+}}
+[data-testid="stMainBlockContainer"],
+.block-container{{
+    padding:0!important;
+    max-width:100%!important;
+}}
+html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"]{{
+    overflow:hidden!important;
+    height:100vh!important;
+}}
+::-webkit-scrollbar{{display:none!important;}}
+*{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
+</style>
+<nav style="position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:22px 56px;">
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div style="width:44px;height:44px;border-radius:8px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),0 4px 14px rgba(0,0,0,0.4);">V</div>
+    <div style="line-height:1.1;">
+      <div style="font-family:Gloock,serif;font-size:22px;color:#f3ead9;letter-spacing:0.005em;">VineLabel</div>
+      <div style="font-size:10.5px;letter-spacing:0.28em;text-transform:uppercase;color:#b7a786;margin-top:3px;">EU DPP Studio</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <a href="?dashboard=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;padding:11px 18px;border-radius:8px;border:1px solid rgba(243,234,217,0.22);background:rgba(243,234,217,0.04);color:#f3ead9;text-decoration:none;">Sign in</a>
+    <a href="?dashboard=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;padding:11px 18px;border-radius:8px;background:#7a1d24;color:#f3ead9;text-decoration:none;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);">Start free →</a>
+  </div>
+</nav>
+<main style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);padding:40px 56px 80px;min-height:calc(100vh - 88px);align-items:center;gap:40px;">
+  <div style="max-width:620px;">
+    <div style="display:inline-flex;align-items:center;gap:10px;padding:6px 12px 6px 8px;border-radius:999px;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.14);font-size:11.5px;letter-spacing:0.18em;text-transform:uppercase;color:#b7a786;margin-bottom:24px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:#c89a5a;box-shadow:0 0 0 3px rgba(200,154,90,0.18);display:inline-block;"></span>AI-Powered · EU Reg. 2021/2117 · Built for Australia
+    </div>
+    <div style="font-family:Caveat,cursive;font-size:28px;color:#c89a5a;line-height:1.1;margin:0 0 14px;display:flex;align-items:center;gap:14px;">
+      <span style="width:38px;height:1px;background:#c89a5a;opacity:0.7;display:inline-block;"></span>the only wine label tool with built-in AI
+    </div>
+    <h1 style="font-family:Gloock,serif;font-weight:400;font-size:clamp(44px,5.6vw,78px);line-height:1.02;letter-spacing:-0.01em;margin:0 0 22px;color:#f3ead9;">
+      Your EU label,<br>
+      <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;font-size:0.78em;display:block;margin-top:6px;white-space:nowrap;">approved before it ships.</span>
+    </h1>
+    <p style="font-size:18px;line-height:1.6;color:rgba(243,234,217,0.82);margin:0 0 26px;max-width:52ch;">
+      A <strong style="color:#f3ead9;font-weight:500;">wrong allergen declaration</strong> can hold your shipment at EU customs.
+      A <strong style="color:#f3ead9;font-weight:500;">missing translation</strong> can get your label rejected at the importer.
+      VineLabel catches both — automatically — before you print a single QR code.
+    </p>
+    <ul style="display:flex;flex-direction:column;gap:12px;margin:0 0 32px;padding:0;list-style:none;">
+      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
+        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+        <span><b style="color:#f3ead9;font-weight:500;">AI allergen scan</b> — paste your ingredients; we flag every allergen you're legally required to declare under EU law.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
+        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+        <span><b style="color:#f3ead9;font-weight:500;">One-click translation</b> to German, French, Italian &amp; Spanish — no translators, no copy-pasting, no extra fees.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
+        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+        <span><b style="color:#f3ead9;font-weight:500;">Live compliance score</b> — know exactly what's missing across Reg. 2021/2117, PPWR 2025, and ESPR 2026.</span>
+      </li>
+      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
+        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+        <span><b style="color:#f3ead9;font-weight:500;">Winery profile pre-fill</b> — enter your producer and importer details once; every new label auto-populates them.</span>
+      </li>
+    </ul>
+    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+      <a href="?dashboard=1" style="background:linear-gradient(180deg,#9c2731,#7a1d24);color:#f3ead9;font-family:Inter,sans-serif;font-size:15.5px;font-weight:600;padding:14px 26px;border-radius:10px;text-decoration:none;display:inline-block;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);letter-spacing:0.01em;">Start free — 2 labels included</a>
+      <span style="font-size:13px;color:#b7a786;">No credit card. Cancel any time.</span>
+    </div>
+  </div>
+  <aside style="position:relative;height:100%;min-height:540px;" aria-hidden="true">
+    <div style="position:absolute;top:28%;left:52%;transform:translateX(-50%) rotate(-3deg);color:#fff;font-family:Caveat,cursive;font-size:26px;line-height:1.05;text-align:center;width:220px;text-shadow:0 2px 12px rgba(0,0,0,0.7);">
+      every bottle gets one<br><span style="display:block;font-size:44px;margin-top:4px;line-height:1;">↓</span>
+    </div>
+    <div role="img" aria-label="AI-powered EU DPP" style="position:absolute;top:6%;right:4%;width:148px;height:148px;border-radius:50%;border:3px solid #fff;color:#fff;display:grid;place-items:center;text-align:center;transform:rotate(-14deg);background:radial-gradient(circle at 35% 30%,rgba(255,255,255,0.18),rgba(0,0,0,0) 70%);box-shadow:0 0 0 1.5px rgba(255,255,255,0.5) inset,0 0 36px rgba(0,0,0,0.6);padding:14px;">
+      <div style="position:absolute;inset:7px;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.75);"></div>
+      <div>
+        <div style="font-size:12.5px;letter-spacing:0.32em;text-transform:uppercase;font-family:Inter,sans-serif;font-weight:700;">AI-Powered</div>
+        <div style="font-family:Gloock,serif;font-weight:700;font-size:32px;line-height:1.0;margin:4px 0 2px;">EU&nbsp;DPP</div>
+        <div style="font-size:13.5px;letter-spacing:0.24em;text-transform:uppercase;font-family:Inter,sans-serif;font-weight:700;">Compliant</div>
+      </div>
+    </div>
+  </aside>
+</main>
+<div style="position:relative;z-index:2;display:flex;align-items:center;gap:18px;padding:0 56px 28px;">
+  <span style="flex:1;height:1px;background:rgba(243,234,217,0.14);display:block;"></span>
+  <span style="font-family:Caveat,cursive;font-size:20px;color:#c89a5a;">pour a glass · take your time</span>
+  <span style="flex:1;height:1px;background:rgba(243,234,217,0.14);display:block;"></span>
+</div>
+""", unsafe_allow_html=True)
+
+    if st.session_state.get("show_login"):
+        _landing_login()
+
+@st.dialog("Welcome to VineLabel")
+def _landing_login():
+    st.markdown("""
+<div style="text-align:center;margin-bottom:8px;">
+  <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:4px;">Sign in or get started</div>
+  <div style="font-size:14px;color:#6e5a3d;">Enter your winery name to continue. Your first 2 labels are free.</div>
+</div>
+""", unsafe_allow_html=True)
+    winery = st.text_input("Winery name", placeholder="e.g. Barossa Valley Estate")
+    email  = st.text_input("Email address", placeholder="you@yourwinery.com.au")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Continue →", type="primary", use_container_width=True):
+            if winery.strip():
+                st.session_state["winery_name"]  = winery.strip()
+                st.session_state["winery_email"] = email.strip()
+                st.session_state["show_login"]   = False
+                st.session_state["page"]         = "dashboard"
+                st.rerun()
+            else:
+                st.error("Please enter your winery name.")
+    with col2:
+        if st.button("Cancel", type="secondary", use_container_width=True):
+            st.session_state["show_login"] = False; st.rerun()
+
 def inject_css():
     _wood_svg   = _wood_texture_b64()
     _wood_photo = _load_asset_b64("wood-bg.png")
     _photo_layer = f'url("data:image/png;base64,{_wood_photo}"),' if _wood_photo else ""
+    st.markdown('<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
     st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap');
 
 /* ── 1. Single background on html only ── */
 html{{
@@ -243,7 +458,7 @@ html{{
     background-size:cover!important;
     background-repeat:no-repeat!important;
     background-attachment:fixed!important;
-    font-family:'DM Sans',system-ui,sans-serif;
+    font-family:'Inter',system-ui,sans-serif;
     color:{C['ink']};
 }}
 
@@ -302,7 +517,8 @@ body,
 [data-testid="stExpander"] [data-testid="stBaseButton-secondary"] p{{color:{C['ink']}!important;font-weight:600!important;}}
 
 /* ── 5. Typography ── */
-h1,h2,h3{{font-family:'Fraunces',serif!important;letter-spacing:-0.01em!important;}}
+h1,h2,h3{{font-family:'Gloock',serif!important;letter-spacing:-0.01em!important;}}
+.caveat{{font-family:'Caveat',cursive!important;}}
 
 /* ── 6. Card elements ── */
 [data-testid="stForm"]{{background:{C['paper']}!important;border:1px solid {C['paperEdge']}!important;border-left:4px solid {C['wine2']}!important;border-radius:14px!important;padding:20px!important;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 18px 38px -16px rgba(0,0,0,0.45),0 4px 10px -4px rgba(0,0,0,0.3)!important;}}
@@ -491,7 +707,7 @@ button:focus-visible,a:focus-visible{{outline:2px solid {C['wine']}!important;}}
 
 def mlabel(text, color=None):
     col = color or C["ink2"]
-    return (f'<div style="font-family:DM Sans,system-ui,sans-serif;font-size:10px;font-weight:700;'
+    return (f'<div style="font-family:Inter,system-ui,sans-serif;font-size:10px;font-weight:700;'
             f'letter-spacing:0.22em;text-transform:uppercase;color:{col};margin:20px 0 8px;">{text}</div>')
 
 def compliance_badges(product):
@@ -536,6 +752,19 @@ def show_public_label(pid):
       </div>
     </div>""", unsafe_allow_html=True)
 
+    # Language selector
+    _translations = p.get("translations", {})
+    _LANG_MAP = {"🇬🇧 English": "en", "🇩🇪 Deutsch": "de", "🇫🇷 Français": "fr", "🇮🇹 Italiano": "it", "🇪🇸 Español": "es"}
+    _avail = {k: v for k, v in _LANG_MAP.items() if v == "en" or (v in _translations and _translations[v])}
+    _label_lang = "en"
+    if len(_avail) > 1:
+        _sel = st.selectbox("Language / Sprache / Langue / Lingua / Idioma", list(_avail.keys()), key="label_lang_sel", label_visibility="collapsed")
+        _label_lang = _avail[_sel]
+    def _t(field):
+        if _label_lang == "en" or _label_lang not in _translations:
+            return None
+        return _translations[_label_lang].get(field)
+
     # Product image
     if p.get("product_image"):
         st.markdown(f'<div style="text-align:center;margin-bottom:16px;"><img src="data:image/jpeg;base64,{p["product_image"]}" style="max-width:100%;max-height:320px;border-radius:14px;box-shadow:0 4px 18px rgba(26,26,46,0.12);" /></div>', unsafe_allow_html=True)
@@ -564,14 +793,19 @@ def show_public_label(pid):
 
     # Ingredients
     ingredients = p.get("ingredients", [])
-    allergens = [a.split(" ")[0].lower() for a in p.get("allergens", [])]
+    allergens_raw = [a.split(" ")[0].lower() for a in p.get("allergens", [])]
     if ingredients:
         st.markdown(mlabel("Ingredients"), unsafe_allow_html=True)
-        parts = [f'<strong style="color:{C["ink"]};">{i}</strong>' if any(a in i.lower() for a in allergens) else i for i in ingredients]
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;line-height:1.7;color:{C["ink"]};background:{C["paper"]};border-radius:12px;padding:14px;border:1px solid {C["ink08"]};margin-bottom:10px;">' + ", ".join(parts) + "</div>", unsafe_allow_html=True)
+        _ing_text = _t("ingredients")
+        if _ing_text:
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;line-height:1.7;color:{C["ink"]};background:{C["paper"]};border-radius:12px;padding:14px;border:1px solid {C["ink08"]};margin-bottom:10px;">{_ing_text}</div>', unsafe_allow_html=True)
+        else:
+            parts = [f'<strong style="color:{C["ink"]};">{i}</strong>' if any(a in i.lower() for a in allergens_raw) else i for i in ingredients]
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;line-height:1.7;color:{C["ink"]};background:{C["paper"]};border-radius:12px;padding:14px;border:1px solid {C["ink08"]};margin-bottom:10px;">' + ", ".join(parts) + "</div>", unsafe_allow_html=True)
 
     if p.get("allergens"):
-        st.markdown(f'<div style="background:#fff8f0;border-left:3px solid {C["gold"]};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["gold"]};text-transform:uppercase;margin-bottom:3px;">Contains Allergens</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{", ".join(p["allergens"])}</div></div>', unsafe_allow_html=True)
+        _all_text = _t("allergens") or ", ".join(p["allergens"])
+        st.markdown(f'<div style="background:#fff8f0;border-left:3px solid {C["gold"]};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["gold"]};text-transform:uppercase;margin-bottom:3px;">Contains Allergens</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{_all_text}</div></div>', unsafe_allow_html=True)
 
     # Nutrition
     nu = p.get("nutrition", {})
@@ -631,7 +865,8 @@ def show_public_label(pid):
             for i, (icon, mat, tip) in enumerate(pkg_rows)])
         st.markdown(f'<div style="border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:10px;">{rows_html}</div>', unsafe_allow_html=True)
         if pkg.get("recycling_instructions"):
-            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;">{pkg["recycling_instructions"]}</div>', unsafe_allow_html=True)
+            _rec_text = _t("recycling_instructions") or pkg["recycling_instructions"]
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;">{_rec_text}</div>', unsafe_allow_html=True)
 
     # Carbon
     sus = p.get("sustainability", {})
@@ -663,7 +898,8 @@ def show_public_label(pid):
                 st.download_button(f"📄 {doc['name']}" + (f" — {doc['issuer']}" if doc.get("issuer") else ""), data=base64.b64decode(doc["data"]), file_name=fname, mime=mime, key=f"dl_{doc['id']}")
 
     if p.get("storage_info"):
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;"><strong>Storage:</strong> {p["storage_info"]}</div>', unsafe_allow_html=True)
+        _sto_text = _t("storage_info") or p["storage_info"]
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;"><strong>Storage:</strong> {_sto_text}</div>', unsafe_allow_html=True)
 
     if p.get("producer_address"):
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:14px;">{p.get("producer_name","")} · {p["producer_address"]}</div>', unsafe_allow_html=True)
@@ -696,8 +932,8 @@ def _product_card(p):
                 f'<div style="display:flex;align-items:flex-start;gap:12px;">'
                 f'{_thumb}'
                 f'<div style="flex:1;min-width:0;">'
-                f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};line-height:1.2;letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
-                f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:3px;">{p.get("variety","")} · {p.get("region","")}{_price}</div>'
+                f'<div style="font-family:Gloock,serif;font-size:20px;font-weight:600;color:{C["ink"]};line-height:1.2;letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
+                f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:3px;">{p.get("variety","")} · {p.get("region","")}{_price}</div>'
                 f'</div></div>',
                 unsafe_allow_html=True
             )
@@ -714,7 +950,7 @@ def _product_card(p):
             with badge_col:
                 st.markdown(
                     f'<div style="text-align:right;padding-top:8px;">'
-                    f'<span style="font-family:DM Sans,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
+                    f'<span style="font-family:Inter,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
                     f'color:{scol};border:1px solid {scol}40;border-radius:999px;padding:3px 9px;white-space:nowrap;">{slbl}</span>'
                     f'</div>',
                     unsafe_allow_html=True
@@ -781,9 +1017,9 @@ def show_dashboard():
             f'style="width:100%;height:100%;object-fit:cover;object-position:center 40%;" />'
             f'<div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(26,26,46,0.18) 0%,rgba(26,26,46,0.62) 100%);border-radius:0 0 18px 18px;"></div>'
             f'<div style="position:absolute;bottom:20px;left:20px;right:20px;">'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:10px;">Producer Dashboard</div>'
-            f'<div style="font-family:Fraunces,serif;font-size:52px;font-weight:600;color:#fff;line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:14px;color:rgba(250,246,240,0.85);margin-top:10px;line-height:1.5;">EU digital wine labels, made simple.</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:10px;">Producer Dashboard</div>'
+            f'<div style="font-family:Gloock,serif;font-size:52px;font-weight:600;color:#fff;line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:14px;color:rgba(250,246,240,0.85);margin-top:10px;line-height:1.5;">{PRODUCER_NAME}</div>'
             f'</div></div>'
             f'<div style="height:20px;"></div>',
             unsafe_allow_html=True
@@ -791,18 +1027,18 @@ def show_dashboard():
     else:
         st.markdown(
             f'<div style="padding:24px 0 16px;">'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:8px;">Producer Dashboard</div>'
-            f'<div style="font-family:Fraunces,serif;font-size:38px;font-weight:600;color:{C["ink"]};line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">EU digital wine labels, made simple.</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:8px;">Producer Dashboard</div>'
+            f'<div style="font-family:Gloock,serif;font-size:38px;font-weight:600;color:{C["ink"]};line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">EU digital wine labels, made simple.</div>'
             f'</div>',
             unsafe_allow_html=True
         )
 
     st.markdown(
         f'<div style="display:flex;gap:10px;margin-bottom:20px;">'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Fraunces,serif;font-size:36px;font-weight:600;color:{C["wineDim"]};letter-spacing:-0.02em;line-height:1;">{len(products)}</div><div style="font-family:DM Sans,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Products</div></div>'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Fraunces,serif;font-size:36px;font-weight:600;color:{C["green"]};letter-spacing:-0.02em;line-height:1;">{published}</div><div style="font-family:DM Sans,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Published</div></div>'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Fraunces,serif;font-size:36px;font-weight:600;color:{C["gold"]};letter-spacing:-0.02em;line-height:1;">{drafts}</div><div style="font-family:DM Sans,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Drafts</div></div>'
+        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["wineDim"]};letter-spacing:-0.02em;line-height:1;">{len(products)}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Products</div></div>'
+        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["green"]};letter-spacing:-0.02em;line-height:1;">{published}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Published</div></div>'
+        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["gold"]};letter-spacing:-0.02em;line-height:1;">{drafts}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Drafts</div></div>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -831,8 +1067,8 @@ def show_dashboard():
             f'box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 18px 38px -16px rgba(0,0,0,0.45);'
             f'text-align:center;padding:48px 20px;">'
             f'<div style="font-size:44px;margin-bottom:14px;">🍷</div>'
-            f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};">No products yet</div>'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">Add your first wine to generate an EU-compliant digital label.</div>'
+            f'<div style="font-family:Gloock,serif;font-size:20px;font-weight:600;color:{C["ink"]};">No products yet</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">Add your first wine to generate an EU-compliant digital label.</div>'
             f'</div>',
             unsafe_allow_html=True
         )
@@ -841,19 +1077,67 @@ def show_dashboard():
         st.session_state.update({"page": "add", "edit_id": None}); st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+
     settings = load_settings()
-    current_url = st.session_state.get("base_url") or settings.get("base_url", "")
-    with st.expander("⚙️ Settings"):
-        st.markdown(f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-bottom:8px;">Paste your published app URL so QR codes link to the live label page.</div>', unsafe_allow_html=True)
-        new_url = st.text_input("Published app URL", value=current_url, placeholder="https://vinelabel-app.streamlit.app")
-        if st.button("Save", type="primary"):
-            url_clean = (new_url or "").rstrip("/")
-            st.session_state["base_url"] = url_clean
-            s = load_settings()
-            s["base_url"] = url_clean
-            save_settings(s)
-            st.success("URL saved.")
-            st.rerun()
+    if not settings.get("producer_name"):
+        st.markdown(
+            f'<div style="background:{C["goldSoft"]};border:1px solid {C["gold"]}40;border-radius:12px;'
+            f'padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;">'
+            f'<div style="font-size:20px;">👋</div>'
+            f'<div><div style="font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:{C["ink"]};">Set up your winery profile</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:2px;">'
+            f'Add your details once — they\'ll pre-fill every new label automatically.</div></div></div>',
+            unsafe_allow_html=True
+        )
+
+    with st.expander("⚙️ Winery Profile & Settings"):
+        with st.form("winery_profile_form"):
+            st.markdown(mlabel("Winery Details"), unsafe_allow_html=True)
+            prof_name    = st.text_input("Winery / producer name", value=settings.get("producer_name", ""), placeholder="e.g. Penfolds")
+            prof_address = st.text_input("Producer address", value=settings.get("producer_address", ""), placeholder="30 Tanunda Road, Nuriootpa SA 5355")
+            pc1, pc2 = st.columns(2)
+            with pc1: prof_country = st.text_input("Country", value=settings.get("country", "Australia"))
+            with pc2: prof_website = st.text_input("Website", value=settings.get("website", ""), placeholder="https://www.winery.com.au")
+
+            st.markdown(mlabel("Default Packaging"), unsafe_allow_html=True)
+            st.markdown(f'<div style="font-family:Inter,sans-serif;font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Pre-fills new products — override per wine if needed.</div>', unsafe_allow_html=True)
+            dp = settings.get("default_packaging", {})
+            dp1, dp2 = st.columns(2)
+            with dp1:
+                prof_bottle    = st.selectbox("Bottle material", BOTTLE_MATERIALS, index=BOTTLE_MATERIALS.index(dp.get("bottle_material", "Glass")) if dp.get("bottle_material") in BOTTLE_MATERIALS else 0)
+                prof_label_mat = st.selectbox("Label material",  LABEL_MATERIALS,  index=LABEL_MATERIALS.index(dp.get("label_material", "Paper"))  if dp.get("label_material")  in LABEL_MATERIALS  else 0)
+            with dp2:
+                prof_closure = st.selectbox("Closure type",     CLOSURE_TYPES,     index=CLOSURE_TYPES.index(dp.get("closure_type", "Natural cork"))   if dp.get("closure_type")   in CLOSURE_TYPES   else 0)
+                prof_capsule = st.selectbox("Capsule material", CAPSULE_MATERIALS, index=CAPSULE_MATERIALS.index(dp.get("capsule_material", "Tin")) if dp.get("capsule_material") in CAPSULE_MATERIALS else 0)
+
+            st.markdown(mlabel("EU Importer"), unsafe_allow_html=True)
+            prof_imp_name = st.text_input("EU importer name",    value=settings.get("eu_importer_name", ""),    placeholder="e.g. Wine Imports GmbH")
+            prof_imp_addr = st.text_input("EU importer address", value=settings.get("eu_importer_address", ""), placeholder="Weinstraße 12, 10115 Berlin, Germany")
+
+            st.markdown(mlabel("App Settings"), unsafe_allow_html=True)
+            current_url = st.session_state.get("base_url") or settings.get("base_url", "")
+            prof_url = st.text_input("Published app URL", value=current_url, placeholder="https://vinelabel-app.streamlit.app", help="QR codes link to this URL")
+
+            if st.form_submit_button("Save Profile", type="primary", use_container_width=True):
+                s = load_settings()
+                s["producer_name"]     = prof_name.strip()
+                s["producer_address"]  = prof_address.strip()
+                s["country"]           = prof_country.strip()
+                s["website"]           = prof_website.strip()
+                s["default_packaging"] = {
+                    "bottle_material":  prof_bottle,
+                    "closure_type":     prof_closure,
+                    "capsule_material": prof_capsule,
+                    "label_material":   prof_label_mat,
+                }
+                s["eu_importer_name"]    = prof_imp_name.strip()
+                s["eu_importer_address"] = prof_imp_addr.strip()
+                url_clean = (prof_url or "").rstrip("/")
+                s["base_url"] = url_clean
+                st.session_state["base_url"] = url_clean
+                save_settings(s)
+                st.success("Profile saved.")
+                st.rerun()
 
 
 # ── Product form ──────────────────────────────────────────────────────────────
@@ -869,14 +1153,16 @@ SPARKLING_DOSAGE   = ["Brut Nature (0–3 g/L)", "Extra Brut (0–6 g/L)", "Brut
 
 
 def show_product_form(existing=None):
-    p = existing or {}
+    p  = existing or {}
+    _s = {} if existing else load_settings()
+    _dp = _s.get("default_packaging", {})
     st.markdown('<div class="edit-page-marker" style="display:none;"></div>', unsafe_allow_html=True)
     bc, tc = st.columns([0.12, 0.88])
     with bc:
         if st.button("←", type="secondary"):
             st.session_state["page"] = "dashboard"; st.rerun()
     with tc:
-        st.markdown(f'<div style="font-family:Fraunces,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">{"Edit Product" if existing else "New Product"}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Gloock,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">{"Edit Product" if existing else "New Product"}</div>', unsafe_allow_html=True)
 
     if existing:
         with st.expander("Compliance status"):
@@ -894,6 +1180,25 @@ def show_product_form(existing=None):
                     + (f'<div style="font-family:Space Grotesk,sans-serif;font-size:11px;color:{C["ink60"]};margin-top:3px;">Missing: {missing_str}</div>' if missing_str else "")
                     + '</div>', unsafe_allow_html=True)
 
+        # Translation — top of edit page so it's always visible
+        st.markdown(f'<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};margin:4px 0 4px;">🌐 EU Language Translation</div>', unsafe_allow_html=True)
+        if existing.get("translations"):
+            langs_done = ", ".join(k.upper() for k in existing["translations"].keys())
+            st.success(f"Translated: **{langs_done}**. Click to re-run.")
+        else:
+            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:4px;">Translate ingredients, allergens, recycling &amp; storage into DE · FR · IT · ES for the consumer page.</div>', unsafe_allow_html=True)
+        if not ANTHROPIC_AVAILABLE or not _get_api_key():
+            st.info("🔑 Add your Anthropic API key to `.streamlit/secrets.toml` to enable translation.", icon="ℹ️")
+        elif st.button("🌐 Translate to DE · FR · IT · ES", key="translate_top_btn"):
+            with st.spinner("Translating — takes 5–10 seconds..."):
+                cur = get_product(existing["id"])
+                translations = ai_translate_label(cur)
+            if translations:
+                cur["translations"] = translations
+                upsert_product(cur)
+                st.success("✅ Translated into German, French, Italian and Spanish.")
+                st.rerun()
+
     with st.form("product_form", clear_on_submit=False):
         # 1 — Identity
         st.markdown(mlabel("1 — Product Identity"), unsafe_allow_html=True)
@@ -906,9 +1211,9 @@ def show_product_form(existing=None):
         with c4: region = st.text_input("Region / appellation", value=p.get("region", ""), placeholder="Barossa Valley")
         pdo_pgi = st.text_input("PDO / PGI designation", value=p.get("pdo_pgi", ""), placeholder="e.g. Barossa Valley GI · Protected Geographical Indication", help="Protected Designation of Origin or Geographical Indication — required if claimed on physical label")
         c5, c6 = st.columns(2)
-        with c5: producer_name = st.text_input("Winery / producer *", value=p.get("producer_name", ""), placeholder="e.g. Penfolds")
-        with c6: country = st.text_input("Country of origin", value=p.get("country", "Australia"))
-        producer_address = st.text_input("Producer address", value=p.get("producer_address", ""), placeholder="Street, City, State, Postcode")
+        with c5: producer_name = st.text_input("Winery / producer *", value=p.get("producer_name") or _s.get("producer_name", ""), placeholder="e.g. Penfolds")
+        with c6: country = st.text_input("Country of origin", value=p.get("country") or _s.get("country", "Australia"))
+        producer_address = st.text_input("Producer address", value=p.get("producer_address") or _s.get("producer_address", ""), placeholder="Street, City, State, Postcode")
         existing_collections = sorted({
             prod.get("collection","").strip()
             for prod in load_products()
@@ -991,13 +1296,17 @@ def show_product_form(existing=None):
         st.markdown(mlabel("6 — Packaging & Recycling"), unsafe_allow_html=True)
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Required for DPP packaging compliance (PPWR 2025).</div>', unsafe_allow_html=True)
         pkg = p.get("packaging", {})
+        _bot_def = pkg.get("bottle_material")  or _dp.get("bottle_material",  "Glass")
+        _clo_def = pkg.get("closure_type")     or _dp.get("closure_type",     "Natural cork")
+        _lbl_def = pkg.get("label_material")   or _dp.get("label_material",   "Paper")
+        _cap_def = pkg.get("capsule_material") or _dp.get("capsule_material", "Tin")
         pa1, pa2 = st.columns(2)
         with pa1:
-            bottle_material = st.selectbox("Bottle material", BOTTLE_MATERIALS, index=BOTTLE_MATERIALS.index(pkg.get("bottle_material", "Glass")) if pkg.get("bottle_material") in BOTTLE_MATERIALS else 0)
-            label_material  = st.selectbox("Label material",  LABEL_MATERIALS,  index=LABEL_MATERIALS.index(pkg.get("label_material", "Paper")) if pkg.get("label_material") in LABEL_MATERIALS else 0)
+            bottle_material = st.selectbox("Bottle material", BOTTLE_MATERIALS, index=BOTTLE_MATERIALS.index(_bot_def) if _bot_def in BOTTLE_MATERIALS else 0)
+            label_material  = st.selectbox("Label material",  LABEL_MATERIALS,  index=LABEL_MATERIALS.index(_lbl_def)  if _lbl_def  in LABEL_MATERIALS  else 0)
         with pa2:
-            closure_type     = st.selectbox("Closure type",     CLOSURE_TYPES,     index=CLOSURE_TYPES.index(pkg.get("closure_type", "Natural cork")) if pkg.get("closure_type") in CLOSURE_TYPES else 0)
-            capsule_material = st.selectbox("Capsule material", CAPSULE_MATERIALS, index=CAPSULE_MATERIALS.index(pkg.get("capsule_material", "Tin")) if pkg.get("capsule_material") in CAPSULE_MATERIALS else 0)
+            closure_type     = st.selectbox("Closure type",     CLOSURE_TYPES,     index=CLOSURE_TYPES.index(_clo_def)     if _clo_def     in CLOSURE_TYPES     else 0)
+            capsule_material = st.selectbox("Capsule material", CAPSULE_MATERIALS, index=CAPSULE_MATERIALS.index(_cap_def) if _cap_def in CAPSULE_MATERIALS else 0)
         recycled_pct = st.number_input("Recycled glass content %", min_value=0, max_value=100, value=int(pkg.get("recycled_content_pct") or 0), step=1)
         recycling_instructions = st.text_area("Recycling instructions", value=pkg.get("recycling_instructions", ""), placeholder="Rinse bottle before recycling at glass bank. Remove cork and recycle separately.", height=70)
 
@@ -1021,8 +1330,8 @@ def show_product_form(existing=None):
         with sc2:
             vineyard_region   = st.text_input("Vineyard region",    value=sc.get("vineyard_region", ""),   placeholder="e.g. Barossa Valley, SA")
             bottling_location = st.text_input("Bottling location",  value=sc.get("bottling_location", ""), placeholder="e.g. Nuriootpa, SA")
-            importer_name     = st.text_input("EU importer",        value=sc.get("importer_name", ""),     placeholder="Required for EU sales")
-        importer_address = st.text_input("EU importer address", value=sc.get("importer_address", ""), placeholder="Street, City, Country")
+            importer_name     = st.text_input("EU importer",        value=sc.get("importer_name")    or _s.get("eu_importer_name", ""),    placeholder="Required for EU sales")
+        importer_address = st.text_input("EU importer address", value=sc.get("importer_address") or _s.get("eu_importer_address", ""), placeholder="Street, City, Country")
 
         # 9 — Certifications
         st.markdown(mlabel("9 — Certifications"), unsafe_allow_html=True)
@@ -1078,13 +1387,27 @@ def show_product_form(existing=None):
                     "updated_at": datetime.now().isoformat(),
                 }
                 upsert_product(product)
+                if ANTHROPIC_AVAILABLE and _get_api_key() and all_ings:
+                    with st.spinner("🤖 Checking allergens..."):
+                        detected = ai_detect_allergens(all_ings)
+                    missing = [a for a in detected if a not in (selected_allergens or [])]
+                    if missing:
+                        st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
                 st.session_state.update({"page": "edit", "edit_id": product["id"], "_saved": True})
                 st.rerun()
 
-    # Certificate upload (outside form)
+    # Post-save feedback + AI tools (outside form, always visible for saved products)
     if p.get("id"):
         if st.session_state.pop("_saved", False):
             st.success("Product saved.")
+            sugg = st.session_state.pop("_allergen_suggestions", None)
+            if sugg and sugg.get("pid") == p.get("id"):
+                st.warning(f"🤖 AI detected allergens not yet declared: **{', '.join(sugg['new'])}**")
+                if st.button("Add to allergens", key="add_allergens_btn", type="primary"):
+                    cur = get_product(p["id"])
+                    cur["allergens"] = list(set((cur.get("allergens") or []) + sugg["new"]))
+                    upsert_product(cur); st.rerun()
+
 
         # Product image
         st.markdown(mlabel("Product Image"), unsafe_allow_html=True)
@@ -1163,7 +1486,7 @@ def show_qr_page(pid):
         if st.button("←", type="secondary"):
             st.session_state["page"] = "dashboard"; st.rerun()
     with tc:
-        st.markdown(f'<div style="font-family:Fraunces,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">QR Code</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Gloock,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">QR Code</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div style="border-bottom:1px solid {C["paperEdge"]};margin:4px 0 16px;"></div>', unsafe_allow_html=True)
 
@@ -1179,11 +1502,11 @@ def show_qr_page(pid):
         eu_notice_html = (
             f'<div style="background:{C["cream"]};border:1px solid {C["eu"]}40;border-radius:10px;padding:10px 14px;margin-top:16px;">'
             f'<span style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.12em;color:{C["eu"]};text-transform:uppercase;">EU Print Requirement</span>'
-            f'<div style="font-family:DM Sans,sans-serif;font-size:12px;color:{C["ink"]};margin-top:3px;">Minimum print size: <strong>13 × 13 mm at 300 DPI</strong> as required by EU Reg. 2021/2117.</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:12px;color:{C["ink"]};margin-top:3px;">Minimum print size: <strong>13 × 13 mm at 300 DPI</strong> as required by EU Reg. 2021/2117.</div>'
             f'</div>'
         )
     elif QR_AVAILABLE:
-        qr_img_html = f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["red"]};margin:12px 0;">Could not generate QR code.</div>'
+        qr_img_html = f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["red"]};margin:12px 0;">Could not generate QR code.</div>'
 
     # Thumbnail next to product name (if image uploaded)
     _thumb_html = (
@@ -1199,8 +1522,8 @@ def show_qr_page(pid):
         f'border-left:3px solid {C["wine2"]};padding-left:14px;margin-bottom:14px;">'
         f'{_thumb_html}'
         f'<div style="flex:1;min-width:0;">'
-        f'<div style="font-family:Fraunces,serif;font-size:20px;font-weight:600;color:{C["ink"]};letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
-        f'<div style="font-family:DM Sans,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:2px;">{p.get("producer_name","")}</div>'
+        f'<div style="font-family:Gloock,serif;font-size:20px;font-weight:600;color:{C["ink"]};letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
+        f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:2px;">{p.get("producer_name","")}</div>'
         f'{_compliance_badges_html(p)}'
         f'</div>'
         f'</div>'
@@ -1239,8 +1562,18 @@ def main():
     if "label" in st.query_params:
         show_public_label(st.query_params["label"])
         return
-    page = st.session_state.get("page", "dashboard")
-    if page == "preview":
+    if "signin" in st.query_params:
+        st.session_state["show_login"] = True
+        st.query_params.clear()
+    if "dashboard" in st.query_params:
+        st.session_state["page"] = "dashboard"
+        st.query_params.clear()
+        st.rerun()
+
+    page = st.session_state.get("page", "landing")
+    if page == "landing":
+        show_landing()
+    elif page == "preview":
         show_public_label(st.session_state.get("preview_id"))
         st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
         if st.button("← Back", type="secondary", use_container_width=True):

@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VineLabel — EU wine labels, made simple.</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="description" content="VineLabel is the only EU e-label tool with built-in AI allergen detection and one-click translation to German, French, Italian and Spanish. Built for Australian wineries exporting to Europe." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #15110d;
+    --paper: #f3ead9;
+    --paper-soft: rgba(243, 234, 217, 0.92);
+    --wine: #7a1d24;
+    --wine-bright: #9c2731;
+    --gold: #c89a5a;
+    --muted: #b7a786;
+    --muted-dark: #6e5a3d;
+    --line: rgba(243, 234, 217, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background: #0c0907;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .stage {
+    position: relative;
+    min-height: 100vh;
+    background-image: url('assets/wine-bg.jpg');
+    background-size: cover;
+    background-position: center right;
+    background-repeat: no-repeat;
+    background-color: #1a0f08;
+  }
+  .stage::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.78) 28%, rgba(12,8,6,0.25) 55%, rgba(12,8,6,0.05) 80%),
+      radial-gradient(ellipse at 18% 50%, rgba(0,0,0,0.55) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .stage::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  .nav {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 56px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+  .logo-mark {
+    width: 44px; height: 44px; border-radius: 8px;
+    background: var(--wine); color: var(--paper);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif; font-size: 22px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--paper); letter-spacing: 0.005em; }
+  .logo-sub { font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn {
+    font-family: 'Inter', sans-serif; font-weight: 500; font-size: 14px;
+    padding: 11px 18px; border-radius: 8px; cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+    color: inherit; background: transparent;
+  }
+  .btn-ghost { color: var(--paper); border-color: rgba(243,234,217,0.22); background: rgba(243,234,217,0.04); }
+  .btn-ghost:hover { background: rgba(243,234,217,0.1); }
+  .btn-solid {
+    background: var(--wine); color: var(--paper); border-color: var(--wine);
+    box-shadow: 0 6px 18px rgba(122,29,36,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-solid:hover { background: var(--wine-bright); border-color: var(--wine-bright); transform: translateY(-1px); }
+  .btn-lg { font-size: 15.5px; padding: 14px 22px; border-radius: 10px; }
+
+  .hero {
+    position: relative; z-index: 2;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    padding: 40px 56px 80px;
+    min-height: calc(100vh - 88px);
+    align-items: center; gap: 40px;
+  }
+  .copy { max-width: 620px; }
+
+  .eyebrow {
+    font-family: 'Caveat', cursive; font-size: 28px; color: var(--gold);
+    line-height: 1.1; margin: 0 0 14px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .eyebrow::before { content: ''; width: 38px; height: 1px; background: var(--gold); opacity: 0.7; }
+
+  h1.title {
+    font-family: 'Gloock', serif; font-weight: 400;
+    font-size: clamp(44px, 5.6vw, 78px); line-height: 1.02;
+    letter-spacing: -0.01em; margin: 0 0 22px; color: var(--paper); text-wrap: balance;
+  }
+  h1.title .accent {
+    font-family: 'Caveat', cursive; font-weight: 700; color: var(--gold);
+    display: block; font-size: 0.78em; line-height: 1.05; margin-top: 6px; white-space: nowrap;
+  }
+
+  .lede { font-size: 18px; line-height: 1.6; color: rgba(243,234,217,0.82); margin: 0 0 26px; max-width: 52ch; }
+  .lede strong { color: var(--paper); font-weight: 500; }
+
+  .pros { display: flex; flex-direction: column; gap: 12px; margin: 0 0 32px; padding: 0; list-style: none; }
+  .pro { display: flex; align-items: flex-start; gap: 14px; font-size: 16px; color: rgba(243,234,217,0.92); line-height: 1.45; }
+  .pro .check {
+    flex: 0 0 24px; width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(200,154,90,0.14); border: 1px solid rgba(200,154,90,0.55);
+    display: grid; place-items: center; color: var(--gold); font-size: 13px; margin-top: 1px;
+  }
+  .pro b { color: var(--paper); font-weight: 500; }
+
+  .cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .cta-note { font-size: 13px; color: var(--muted); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px 6px 8px; border-radius: 999px;
+    background: rgba(243,234,217,0.06); border: 1px solid rgba(243,234,217,0.14);
+    font-size: 11.5px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 24px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px rgba(200,154,90,0.18); }
+
+  .right { position: relative; height: 100%; min-height: 540px; }
+
+  .stamp {
+    position: absolute; top: 6%; right: 4%;
+    width: 148px; height: 148px; border-radius: 50%;
+    border: 3px solid #ffffff; color: #ffffff;
+    display: grid; place-items: center; text-align: center;
+    transform: rotate(-14deg);
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.18), rgba(0,0,0,0) 70%);
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.5) inset, 0 0 36px rgba(0,0,0,0.6);
+    padding: 14px;
+  }
+  .stamp .top { font-size: 12.5px; letter-spacing: 0.32em; text-transform: uppercase; font-family: 'Inter', sans-serif; font-weight: 700; }
+  .stamp .big { font-family: 'Gloock', serif; font-weight: 700; font-size: 32px; line-height: 1.0; margin: 4px 0 2px; letter-spacing: 0.01em; }
+  .stamp .small { font-size: 13.5px; letter-spacing: 0.24em; text-transform: uppercase; font-family: 'Inter', sans-serif; font-weight: 700; }
+  .stamp::before { content: ''; position: absolute; inset: 7px; border-radius: 50%; border: 1.5px dashed rgba(255,255,255,0.75); }
+
+  .note {
+    position: absolute; top: 28%; left: 52%;
+    transform: translateX(-50%) rotate(-3deg);
+    color: #ffffff; font-family: 'Caveat', cursive; font-size: 26px;
+    line-height: 1.05; text-align: center; width: 220px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  }
+  .note .arrow { display: block; font-size: 44px; margin-top: 4px; line-height: 1; }
+
+  /* ── Features strip ── */
+  .features {
+    background: #0c0907;
+    padding: 80px 56px 72px;
+    position: relative;
+  }
+  .features::before {
+    content: '';
+    position: absolute; top: 0; left: 56px; right: 56px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,154,90,0.3) 30%, rgba(200,154,90,0.3) 70%, transparent);
+  }
+  .features-header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .features-eyebrow {
+    font-family: 'Caveat', cursive; font-size: 22px; color: var(--gold);
+    margin: 0 0 10px;
+  }
+  .features-title {
+    font-family: 'Gloock', serif; font-weight: 400;
+    font-size: clamp(28px, 3vw, 42px); color: var(--paper);
+    margin: 0; line-height: 1.15;
+  }
+  .features-title em {
+    font-style: normal; color: var(--gold);
+  }
+  .feat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .feat-card {
+    background: rgba(243,234,217,0.04);
+    border: 1px solid rgba(243,234,217,0.1);
+    border-radius: 16px;
+    padding: 28px 26px;
+    transition: border-color .2s ease, background .2s ease;
+  }
+  .feat-card:hover {
+    border-color: rgba(200,154,90,0.35);
+    background: rgba(243,234,217,0.06);
+  }
+  .feat-icon {
+    font-size: 28px; margin-bottom: 14px; line-height: 1;
+  }
+  .feat-label {
+    display: inline-block;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: var(--gold); border: 1px solid rgba(200,154,90,0.4);
+    border-radius: 4px; padding: 2px 7px; margin-bottom: 12px;
+  }
+  .feat-title {
+    font-family: 'Gloock', serif; font-size: 20px; color: var(--paper);
+    margin: 0 0 10px; font-weight: 400; line-height: 1.2;
+  }
+  .feat-desc {
+    font-size: 14.5px; line-height: 1.6; color: rgba(243,234,217,0.7);
+  }
+  .feat-desc strong { color: var(--paper); font-weight: 500; }
+
+  /* ── Social proof bar ── */
+  .proof-bar {
+    background: #0c0907;
+    padding: 0 56px 80px;
+  }
+  .proof-inner {
+    max-width: 1100px; margin: 0 auto;
+    display: flex; align-items: center; gap: 48px;
+    background: rgba(122,29,36,0.12);
+    border: 1px solid rgba(122,29,36,0.3);
+    border-radius: 16px; padding: 28px 36px;
+    flex-wrap: wrap;
+  }
+  .proof-quote {
+    flex: 1; min-width: 240px;
+    font-family: 'Caveat', cursive; font-size: 22px; color: var(--paper);
+    line-height: 1.35;
+  }
+  .proof-quote cite {
+    display: block; font-style: normal;
+    font-family: 'Inter', sans-serif; font-size: 13px;
+    color: var(--muted); margin-top: 8px; letter-spacing: 0.04em;
+  }
+  .proof-stats {
+    display: flex; gap: 36px; flex-wrap: wrap;
+  }
+  .proof-stat { text-align: center; }
+  .proof-stat .num {
+    font-family: 'Gloock', serif; font-size: 34px; color: var(--gold);
+    display: block; line-height: 1;
+  }
+  .proof-stat .lbl {
+    font-size: 12px; color: var(--muted); letter-spacing: 0.12em;
+    text-transform: uppercase; margin-top: 4px; display: block;
+  }
+
+  /* ── Pricing ── */
+  .pricing {
+    background: #0c0907;
+    padding: 80px 56px 72px;
+    position: relative;
+  }
+  .pricing::before {
+    content: '';
+    position: absolute; top: 0; left: 56px; right: 56px; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(200,154,90,0.3) 30%, rgba(200,154,90,0.3) 70%, transparent);
+  }
+  .pricing-header { text-align: center; margin-bottom: 48px; }
+  .pricing-eyebrow { font-family: 'Caveat', cursive; font-size: 22px; color: var(--gold); margin: 0 0 10px; }
+  .pricing-title {
+    font-family: 'Gloock', serif; font-weight: 400;
+    font-size: clamp(28px, 3vw, 42px); color: var(--paper); margin: 0; line-height: 1.15;
+  }
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px; max-width: 1000px; margin: 0 auto;
+  }
+  .price-card {
+    background: rgba(243,234,217,0.04);
+    border: 1px solid rgba(243,234,217,0.1);
+    border-radius: 18px; padding: 32px 28px;
+    display: flex; flex-direction: column;
+    position: relative; transition: border-color .2s ease;
+  }
+  .price-card:hover { border-color: rgba(200,154,90,0.3); }
+  .price-card.is-featured {
+    border-color: var(--wine);
+    background: rgba(122,29,36,0.1);
+  }
+  .price-badge {
+    position: absolute; top: -13px; left: 50%; transform: translateX(-50%);
+    background: var(--wine); color: var(--paper);
+    font-size: 11px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 4px 14px; border-radius: 999px;
+    white-space: nowrap;
+  }
+  .price-tier {
+    font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .price-amount {
+    font-family: 'Gloock', serif; font-size: 48px; color: var(--paper);
+    line-height: 1; margin-bottom: 4px;
+  }
+  .price-amount sup { font-size: 22px; vertical-align: top; margin-top: 10px; margin-right: 2px; font-family: 'Inter', sans-serif; }
+  .price-cadence { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .price-desc { font-size: 14px; color: rgba(243,234,217,0.7); margin-bottom: 24px; line-height: 1.5; }
+  .price-features { list-style: none; padding: 0; margin: 0 0 28px; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+  .price-features li { font-size: 14px; color: rgba(243,234,217,0.85); display: flex; align-items: flex-start; gap: 10px; line-height: 1.4; }
+  .price-features li::before { content: '✓'; color: var(--gold); flex-shrink: 0; font-size: 13px; margin-top: 1px; }
+  .price-features li.muted { color: rgba(243,234,217,0.4); }
+  .price-features li.muted::before { color: rgba(243,234,217,0.2); }
+  .price-cta {
+    display: block; text-align: center; padding: 12px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 600; text-decoration: none;
+    border: 1px solid rgba(243,234,217,0.2); color: var(--paper);
+    background: rgba(243,234,217,0.06);
+    transition: background .15s, border-color .15s, transform .15s;
+  }
+  .price-cta:hover { background: rgba(243,234,217,0.12); transform: translateY(-1px); }
+  .price-cta.is-primary {
+    background: var(--wine); border-color: var(--wine);
+    box-shadow: 0 6px 18px rgba(122,29,36,0.4);
+  }
+  .price-cta.is-primary:hover { background: var(--wine-bright); border-color: var(--wine-bright); }
+
+  /* ── Book a call banner ── */
+  .demo-bar {
+    background: #0c0907;
+    padding: 0 56px 72px;
+  }
+  .demo-inner {
+    max-width: 1000px; margin: 0 auto;
+    background: linear-gradient(135deg, rgba(200,154,90,0.1) 0%, rgba(122,29,36,0.12) 100%);
+    border: 1px solid rgba(200,154,90,0.25);
+    border-radius: 18px; padding: 40px 48px;
+    display: flex; align-items: center; justify-content: space-between; gap: 32px; flex-wrap: wrap;
+  }
+  .demo-copy { flex: 1; min-width: 240px; }
+  .demo-copy h3 {
+    font-family: 'Gloock', serif; font-weight: 400;
+    font-size: clamp(22px, 2.5vw, 32px); color: var(--paper); margin: 0 0 10px;
+  }
+  .demo-copy p { font-size: 15px; color: rgba(243,234,217,0.7); margin: 0; line-height: 1.6; }
+  .demo-actions { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; flex-shrink: 0; }
+  .demo-note { font-size: 12px; color: var(--muted); text-align: center; }
+
+  /* ── Contact form ── */
+  .contact {
+    background: #0c0907;
+    padding: 0 56px 80px;
+  }
+  .contact-inner {
+    max-width: 640px; margin: 0 auto;
+  }
+  .contact-header { text-align: center; margin-bottom: 36px; }
+  .contact-header h3 {
+    font-family: 'Gloock', serif; font-weight: 400;
+    font-size: clamp(24px, 3vw, 36px); color: var(--paper); margin: 0 0 10px;
+  }
+  .contact-header p { font-size: 15px; color: rgba(243,234,217,0.65); margin: 0; }
+  .contact-form {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .contact-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); letter-spacing: 0.06em; }
+  .contact-form input,
+  .contact-form textarea,
+  .contact-form select {
+    background: rgba(243,234,217,0.06);
+    border: 1px solid rgba(243,234,217,0.15);
+    border-radius: 10px; padding: 12px 14px;
+    font-family: 'Inter', sans-serif; font-size: 15px; color: var(--paper);
+    outline: none; transition: border-color .15s;
+    appearance: none;
+  }
+  .contact-form input::placeholder,
+  .contact-form textarea::placeholder { color: rgba(243,234,217,0.3); }
+  .contact-form input:focus,
+  .contact-form textarea:focus,
+  .contact-form select:focus { border-color: rgba(200,154,90,0.5); }
+  .contact-form textarea { resize: vertical; min-height: 100px; }
+  .contact-form select option { background: #1a0f08; }
+  .contact-submit {
+    background: var(--wine); color: var(--paper);
+    border: none; border-radius: 10px; padding: 14px 28px;
+    font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: background .15s, transform .15s;
+    box-shadow: 0 6px 18px rgba(122,29,36,0.4);
+  }
+  .contact-submit:hover { background: var(--wine-bright); transform: translateY(-1px); }
+  .form-success {
+    display: none; text-align: center; padding: 24px;
+    background: rgba(79,107,58,0.12); border: 1px solid rgba(79,107,58,0.3);
+    border-radius: 12px; color: var(--paper); font-size: 15px; line-height: 1.6;
+  }
+
+  .mood-strip {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px 56px 28px; color: var(--muted);
+    background: #0c0907;
+    border-top: 1px solid rgba(243,234,217,0.08);
+  }
+  .mood-strip .hr { flex: 1; height: 1px; background: rgba(243,234,217,0.14); }
+  .mood-strip .center { font-family: 'Caveat', cursive; font-size: 20px; color: var(--gold); }
+
+  @media (max-width: 1000px) {
+    .stage { background-position: 70% center; }
+    .stage::before { background: linear-gradient(180deg, rgba(12,8,6,0.6) 0%, rgba(12,8,6,0.55) 40%, rgba(12,8,6,0.85) 100%); }
+    .nav { padding: 18px 24px; }
+    .hero { grid-template-columns: 1fr; padding: 20px 24px 60px; min-height: auto; }
+    .right { min-height: 360px; }
+    .stamp { width: 120px; height: 120px; top: auto; bottom: 0; right: 8%; }
+    .note { display: none; }
+    h1.title { font-size: clamp(40px, 10vw, 64px); }
+    .features { padding: 60px 24px 56px; }
+    .features::before { left: 24px; right: 24px; }
+    .proof-bar { padding: 0 24px 60px; }
+    .pricing { padding: 60px 24px 56px; }
+    .pricing::before { left: 24px; right: 24px; }
+    .demo-bar { padding: 0 24px 60px; }
+    .demo-inner { padding: 28px 24px; }
+    .demo-actions { align-items: stretch; }
+    .contact { padding: 0 24px 72px; }
+    .form-row { grid-template-columns: 1fr; }
+    .mood-strip { padding: 12px 24px 22px; gap: 12px; }
+  }
+  @media (max-width: 560px) {
+    .nav-right .btn-ghost { display: none; }
+    .logo-sub { display: none; }
+    .stamp { width: 96px; height: 96px; }
+    .stamp .big { font-size: 22px; }
+    .proof-inner { gap: 28px; }
+    .proof-stats { gap: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <nav class="nav" aria-label="Primary">
+    <a class="logo" href="#">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <div class="logo-name">VineLabel</div>
+        <div class="logo-sub">EU DPP Studio</div>
+      </div>
+    </a>
+    <div class="nav-right">
+      <a class="btn btn-ghost" href="static/dashboard.html">Sign in</a>
+      <a class="btn btn-solid" href="static/dashboard.html">Start free →</a>
+    </div>
+  </nav>
+
+  <main class="hero">
+    <div class="copy">
+      <div class="pill"><span class="dot"></span>AI-Powered · EU Reg. 2021/2117 · Built for Australia</div>
+      <div class="eyebrow">the only wine label tool with built-in AI</div>
+      <h1 class="title">
+        Your EU label,
+        <span class="accent">approved before it ships.</span>
+      </h1>
+      <p class="lede">
+        A <strong>wrong allergen declaration</strong> can hold your shipment at EU customs.
+        A <strong>missing translation</strong> can get your label rejected at the importer.
+        VineLabel catches both — automatically — before you print a single QR code.
+      </p>
+      <ul class="pros">
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>AI allergen scan</b> — paste your ingredients; we flag every allergen you're legally required to declare under EU law.</span>
+        </li>
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>One-click translation</b> to German, French, Italian &amp; Spanish — no translators, no copy-pasting, no extra fees.</span>
+        </li>
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>Live compliance score</b> — know exactly what's missing across Reg. 2021/2117, PPWR 2025, and ESPR 2026.</span>
+        </li>
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>Winery profile pre-fill</b> — enter your producer and importer details once; every new label auto-populates them.</span>
+        </li>
+      </ul>
+      <div class="cta-row">
+        <a class="btn btn-solid btn-lg" href="static/dashboard.html">Start free — 2 labels included</a>
+        <span class="cta-note">No credit card. Cancel any time.</span>
+      </div>
+    </div>
+
+    <aside class="right" aria-hidden="true">
+      <div class="note">
+        every bottle gets one
+        <span class="arrow">↓</span>
+      </div>
+      <div class="stamp" role="img" aria-label="AI-powered EU DPP">
+        <div>
+          <div class="top">AI-Powered</div>
+          <div class="big">EU&nbsp;DPP</div>
+          <div class="small">Compliant</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+</div>
+
+<!-- ── Features ── -->
+<section class="features">
+  <div class="features-header">
+    <div class="features-eyebrow">what makes us different</div>
+    <h2 class="features-title">Features no other wine label tool has — <em>yet.</em></h2>
+  </div>
+  <div class="feat-grid">
+
+    <div class="feat-card">
+      <div class="feat-icon">🤖</div>
+      <div class="feat-label">AI · Unique</div>
+      <div class="feat-title">Allergen Detection</div>
+      <div class="feat-desc">
+        Paste your full ingredients list. Our AI cross-references EU Annex II allergens and
+        <strong>tells you exactly what you've missed</strong> — before EU customs does it for you.
+      </div>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">🌐</div>
+      <div class="feat-label">AI · Unique</div>
+      <div class="feat-title">One-Click EU Translation</div>
+      <div class="feat-desc">
+        German, French, Italian, Spanish — generated in seconds.
+        <strong>No external translators.</strong> No Word docs emailed back and forth.
+        Every field, every language, every time.
+      </div>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">📊</div>
+      <div class="feat-label">Real-time</div>
+      <div class="feat-title">Live Compliance Score</div>
+      <div class="feat-desc">
+        A running score shows exactly which fields are missing as you type —
+        covering <strong>Reg. 2021/2117</strong> (e-label), <strong>PPWR 2025</strong> (packaging),
+        and <strong>ESPR 2026</strong> (carbon).
+      </div>
+    </div>
+
+    <div class="feat-card">
+      <div class="feat-icon">⬛</div>
+      <div class="feat-label">Instant</div>
+      <div class="feat-title">QR Code + Consumer Page</div>
+      <div class="feat-desc">
+        Every product gets a <strong>hosted multilingual consumer page</strong> and a print-ready QR code —
+        scannable on any phone, in any EU language, right out of the box.
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Social proof ── -->
+<div class="proof-bar">
+  <div class="proof-inner">
+    <div class="proof-quote">
+      "We used to spend a week per wine getting EU labels right. VineLabel cut it to an afternoon — and the AI caught an allergen we'd been missing for two vintages."
+      <cite>— Winemaker, Barossa Valley</cite>
+    </div>
+    <div class="proof-stats">
+      <div class="proof-stat">
+        <span class="num">4</span>
+        <span class="lbl">EU languages</span>
+      </div>
+      <div class="proof-stat">
+        <span class="num">3</span>
+        <span class="lbl">regulations covered</span>
+      </div>
+      <div class="proof-stat">
+        <span class="num">&lt;$0.01</span>
+        <span class="lbl">per AI scan</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pricing ── -->
+<section class="pricing" id="pricing">
+  <div class="pricing-header">
+    <div class="pricing-eyebrow">simple, transparent pricing</div>
+    <h2 class="pricing-title">Start free. Scale when you're ready.</h2>
+  </div>
+  <div class="pricing-grid">
+
+    <div class="price-card">
+      <div class="price-tier">Starter</div>
+      <div class="price-amount"><sup>A$</sup>49</div>
+      <div class="price-cadence">per month, billed monthly</div>
+      <div class="price-desc">Get compliant quickly. Perfect for small producers with a handful of labels.</div>
+      <ul class="price-features">
+        <li>5 active labels</li>
+        <li>QR code + hosted consumer page</li>
+        <li>EU compliance checklist</li>
+        <li>Batch number tracking</li>
+        <li class="muted">AI allergen detection</li>
+        <li class="muted">One-click translation</li>
+        <li class="muted">Custom QR branding</li>
+      </ul>
+      <a class="price-cta" href="static/dashboard.html">Start free — 2 labels included</a>
+    </div>
+
+    <div class="price-card is-featured">
+      <div class="price-badge">Most popular</div>
+      <div class="price-tier">Pro</div>
+      <div class="price-amount"><sup>A$</sup>149</div>
+      <div class="price-cadence">per month, billed monthly</div>
+      <div class="price-desc">The full AI toolkit. Everything you need to export to Europe without a compliance consultant.</div>
+      <ul class="price-features">
+        <li>25 active labels</li>
+        <li>QR code + hosted consumer page</li>
+        <li>EU compliance checklist</li>
+        <li>Batch number tracking</li>
+        <li>AI allergen detection</li>
+        <li>One-click translation — DE, FR, IT, ES</li>
+        <li>Live compliance score</li>
+        <li class="muted">Custom QR branding</li>
+      </ul>
+      <a class="price-cta is-primary" href="static/dashboard.html">Get Pro →</a>
+    </div>
+
+    <div class="price-card">
+      <div class="price-tier">Growth</div>
+      <div class="price-amount"><sup>A$</sup>249</div>
+      <div class="price-cadence">per month, billed monthly</div>
+      <div class="price-desc">For larger wineries and exporters managing many SKUs across multiple EU markets.</div>
+      <ul class="price-features">
+        <li>Unlimited labels</li>
+        <li>QR code + hosted consumer page</li>
+        <li>EU compliance checklist</li>
+        <li>Batch number tracking</li>
+        <li>AI allergen detection</li>
+        <li>One-click translation — DE, FR, IT, ES</li>
+        <li>Live compliance score</li>
+        <li>Custom QR branding</li>
+        <li>Dedicated onboarding call</li>
+      </ul>
+      <a class="price-cta" href="#contact">Talk to us →</a>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── Book a call ── -->
+<div class="demo-bar">
+  <div class="demo-inner">
+    <div class="demo-copy">
+      <h3>Not sure where to start? Book a free setup call.</h3>
+      <p>We'll walk through your wine range, set up your winery profile, and have your first QR-compliant label ready before the call ends. No pitch, no pressure — just 30 minutes of hands-on help.</p>
+    </div>
+    <div class="demo-actions">
+      <!-- Replace href with your Calendly link: https://calendly.com/YOUR_LINK -->
+      <a class="btn btn-solid btn-lg" href="https://calendly.com/vinelabel/setup" target="_blank" rel="noopener">Book a free 30-min call →</a>
+      <span class="demo-note">Free · No credit card · Zoom or phone</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Contact form ── -->
+<!-- To receive submissions: sign up at formspree.io, create a form, replace YOUR_FORMSPREE_ID below -->
+<div class="contact" id="contact">
+  <div class="contact-inner">
+    <div class="contact-header">
+      <h3>Send us a message</h3>
+      <p>Have a question, need a custom quote, or want to know if VineLabel suits your setup? We reply within one business day.</p>
+    </div>
+    <form class="contact-form" action="https://formspree.io/f/YOUR_FORMSPREE_ID" method="POST" id="contactForm">
+      <div class="form-row">
+        <label>Your name
+          <input type="text" name="name" placeholder="Jane Smith" required />
+        </label>
+        <label>Winery name
+          <input type="text" name="winery" placeholder="Springvale Estate" required />
+        </label>
+      </div>
+      <label>Email address
+        <input type="email" name="email" placeholder="jane@mywinery.com.au" required />
+      </label>
+      <label>How many wines do you export to Europe?
+        <select name="volume">
+          <option value="" disabled selected>Select an option</option>
+          <option>1–5 wines</option>
+          <option>6–15 wines</option>
+          <option>16–50 wines</option>
+          <option>50+ wines</option>
+        </select>
+      </label>
+      <label>Message
+        <textarea name="message" placeholder="Tell us about your situation — we'll come back with the right plan." rows="4"></textarea>
+      </label>
+      <button class="contact-submit" type="submit">Send message →</button>
+    </form>
+    <div class="form-success" id="formSuccess">
+      <strong>Message received.</strong><br>
+      We'll be in touch within one business day. In the meantime, feel free to <a href="static/dashboard.html" style="color:var(--gold)">explore the dashboard</a>.
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var form = document.getElementById('contactForm');
+  var success = document.getElementById('formSuccess');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    var action = form.getAttribute('action');
+    if (action.indexOf('YOUR_FORMSPREE_ID') !== -1) return; /* dev mode — let default submit */
+    e.preventDefault();
+    var data = new FormData(form);
+    fetch(action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } })
+      .then(function (r) {
+        if (r.ok) { form.style.display = 'none'; success.style.display = 'block'; }
+        else { alert('Something went wrong — please email us directly.'); }
+      })
+      .catch(function () { alert('Something went wrong — please email us directly.'); });
+  });
+})();
+</script>
+
+<div class="mood-strip" aria-hidden="true">
+  <span class="hr"></span>
+  <span class="center">pour a glass · take your time</span>
+  <span class="hr"></span>
+</div>
+
+</body>
+</html>

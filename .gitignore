@@ -11,5 +11,6 @@ data/products.json
 .DS_Store
 Thumbs.db
 
-# Streamlit cache
+# Streamlit — never commit secrets
+.streamlit/secrets.toml
 .streamlit/cache/

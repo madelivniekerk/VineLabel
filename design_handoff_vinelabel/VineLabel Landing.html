@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VineLabel — EU wine labels, made simple.</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #15110d;
+    --paper: #f3ead9;
+    --paper-soft: rgba(243, 234, 217, 0.92);
+    --wine: #7a1d24;
+    --wine-bright: #9c2731;
+    --gold: #c89a5a;
+    --muted: #b7a786;
+    --muted-dark: #6e5a3d;
+    --line: rgba(243, 234, 217, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background: #0c0907;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- stage ---------- */
+  .stage {
+    position: relative;
+    min-height: 100vh;
+    background-image: url('assets/wine-bg.jpg');
+    background-size: cover;
+    background-position: center right;
+    background-repeat: no-repeat;
+    background-color: #1a0f08;
+  }
+
+  /* warm gradient veil — keeps the bottle on the right legible & deepens
+     the left so type sits cleanly on wood */
+  .stage::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.78) 28%, rgba(12,8,6,0.25) 55%, rgba(12,8,6,0.05) 80%),
+      radial-gradient(ellipse at 18% 50%, rgba(0,0,0,0.55) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  /* subtle vignette on edges */
+  .stage::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: relative;
+    z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 56px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--wine);
+    color: var(--paper);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif;
+    font-size: 22px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--paper); letter-spacing: 0.005em; }
+  .logo-sub { font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    padding: 11px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 8px;
+    color: inherit;
+    background: transparent;
+  }
+  .btn-ghost { color: var(--paper); border-color: rgba(243,234,217,0.22); background: rgba(243,234,217,0.04); }
+  .btn-ghost:hover { background: rgba(243,234,217,0.1); }
+  .btn-solid {
+    background: var(--wine);
+    color: var(--paper);
+    border-color: var(--wine);
+    box-shadow: 0 6px 18px rgba(122,29,36,0.45), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .btn-solid:hover { background: var(--wine-bright); border-color: var(--wine-bright); transform: translateY(-1px); }
+  .btn-lg { font-size: 15.5px; padding: 14px 22px; border-radius: 10px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+    padding: 40px 56px 80px;
+    min-height: calc(100vh - 88px);
+    align-items: center;
+    gap: 40px;
+  }
+
+  .copy { max-width: 620px; }
+
+  .eyebrow {
+    font-family: 'Caveat', cursive;
+    font-size: 28px;
+    color: var(--gold);
+    line-height: 1.1;
+    margin: 0 0 14px;
+    display: flex; align-items: center; gap: 14px;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 38px; height: 1px;
+    background: var(--gold);
+    opacity: 0.7;
+  }
+
+  h1.title {
+    font-family: 'Gloock', serif;
+    font-weight: 400;
+    font-size: clamp(44px, 5.6vw, 78px);
+    line-height: 1.02;
+    letter-spacing: -0.01em;
+    margin: 0 0 22px;
+    color: var(--paper);
+    text-wrap: balance;
+  }
+  h1.title .accent {
+    font-family: 'Caveat', cursive;
+    font-weight: 700;
+    color: var(--gold);
+    display: block;
+    font-size: 0.78em;
+    line-height: 1.05;
+    margin-top: 6px;
+    white-space: nowrap;
+  }
+
+  .lede {
+    font-size: 18px;
+    line-height: 1.6;
+    color: rgba(243, 234, 217, 0.82);
+    margin: 0 0 26px;
+    max-width: 52ch;
+  }
+  .lede strong { color: var(--paper); font-weight: 500; }
+
+  .pros { display: flex; flex-direction: column; gap: 12px; margin: 0 0 32px; padding: 0; list-style: none; }
+  .pro { display: flex; align-items: flex-start; gap: 14px; font-size: 16px; color: rgba(243,234,217,0.92); line-height: 1.45; }
+  .pro .check {
+    flex: 0 0 24px;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: rgba(200, 154, 90, 0.14);
+    border: 1px solid rgba(200, 154, 90, 0.55);
+    display: grid; place-items: center;
+    color: var(--gold);
+    font-size: 13px;
+    margin-top: 1px;
+  }
+  .pro b { color: var(--paper); font-weight: 500; }
+
+  .cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .cta-note { font-family: 'Caveat', cursive; font-size: 22px; color: var(--gold); }
+
+  /* tagline pill at top of copy */
+  .pill {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 6px 12px 6px 8px;
+    border-radius: 999px;
+    background: rgba(243,234,217,0.06);
+    border: 1px solid rgba(243,234,217,0.14);
+    font-size: 11.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 24px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px rgba(200,154,90,0.18); }
+
+  /* ---------- right side: just space for the bottle (image already in bg)
+     + a wax stamp ---------- */
+  .right {
+    position: relative;
+    height: 100%;
+    min-height: 540px;
+  }
+
+  .stamp {
+    position: absolute;
+    top: 6%;
+    right: 4%;
+    width: 148px; height: 148px;
+    border-radius: 50%;
+    border: 3px solid #ffffff;
+    color: #ffffff;
+    display: grid; place-items: center;
+    text-align: center;
+    font-family: 'Caveat', cursive;
+    transform: rotate(-14deg);
+    background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.18), rgba(0,0,0,0) 70%);
+    box-shadow: 0 0 0 1.5px rgba(255,255,255,0.5) inset, 0 0 36px rgba(0,0,0,0.6);
+    padding: 14px;
+  }
+  .stamp .top { font-size: 12.5px; letter-spacing: 0.32em; text-transform: uppercase; color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 700; }
+  .stamp .big { font-family: 'Gloock', serif; font-weight: 700; font-size: 32px; line-height: 1.0; margin: 4px 0 2px; color: #ffffff; letter-spacing: 0.01em; }
+  .stamp .small { font-size: 13.5px; letter-spacing: 0.24em; text-transform: uppercase; color: #ffffff; font-family: 'Inter', sans-serif; font-weight: 700; }
+  .stamp::before {
+    content: '';
+    position: absolute; inset: 7px;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255,255,255,0.75);
+  }
+
+  /* hand-drawn note pointing at the bottle */
+  .note {
+    position: absolute;
+    top: 28%;
+    left: 52%;
+    transform: translateX(-50%) rotate(-3deg);
+    color: #ffffff;
+    font-family: 'Caveat', cursive;
+    font-size: 26px;
+    line-height: 1.05;
+    text-align: center;
+    width: 220px;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.7);
+  }
+  .note .arrow { display: block; font-size: 44px; margin-top: 4px; line-height: 1; }
+
+  /* mood line at bottom */
+  .mood-strip {
+    position: relative; z-index: 2;
+    display: flex; align-items: center; gap: 18px;
+    padding: 18px 56px 28px;
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  .mood-strip .hr { flex: 1; height: 1px; background: rgba(243,234,217,0.14); }
+  .mood-strip .center { font-family: 'Caveat', cursive; text-transform: none; letter-spacing: 0.01em; font-size: 20px; color: var(--gold); }
+
+  /* responsive */
+  @media (max-width: 1000px) {
+    .stage { background-position: 70% center; }
+    .stage::before {
+      background:
+        linear-gradient(180deg, rgba(12,8,6,0.6) 0%, rgba(12,8,6,0.55) 40%, rgba(12,8,6,0.85) 100%);
+    }
+    .nav { padding: 18px 24px; }
+    .hero { grid-template-columns: 1fr; padding: 20px 24px 60px; min-height: auto; }
+    .right { min-height: 360px; }
+    .stamp { width: 120px; height: 120px; top: auto; bottom: 0; right: 8%; }
+    .note { display: none; }
+    h1.title { font-size: clamp(40px, 10vw, 64px); }
+    .mood-strip { padding: 12px 24px 22px; gap: 12px; }
+  }
+  @media (max-width: 560px) {
+    .nav-right .btn-ghost { display: none; }
+    .logo-sub { display: none; }
+    .stamp { width: 96px; height: 96px; }
+    .stamp .big { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <nav class="nav" aria-label="Primary">
+    <div class="logo">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <div class="logo-name">VineLabel</div>
+        <div class="logo-sub">EU DPP Studio</div>
+      </div>
+    </div>
+    <div class="nav-right">
+      <a class="btn btn-ghost" href="VineLabel Dashboard.html">Sign in</a>
+      <a class="btn btn-solid" href="VineLabel Dashboard.html">Start free →</a>
+    </div>
+  </nav>
+
+  <main class="hero">
+    <div class="copy">
+      <div class="pill"><span class="dot"></span>EU Digital Product Passport · Built for Australia</div>
+
+      <div class="eyebrow">a smoother way to ship into Europe</div>
+
+      <h1 class="title">
+        Compliance,
+        <span class="accent">without the complexity.</span>
+      </h1>
+
+      <p class="lede">
+        Since <strong>December 2023</strong>, every bottle sold in Europe needs a
+        <strong>QR code</strong> linked to its compliance details — ingredients, nutrition,
+        allergens, and sustainability info. VineLabel makes it easy: fill in your details
+        once, and we generate the QR code and consumer page for every bottle.
+      </p>
+
+      <ul class="pros">
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>All EU-required fields,</b> checked as you type — no guessing what’s missing.</span>
+        </li>
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>One simple dashboard</b> for every wine. No more spreadsheets at midnight.</span>
+        </li>
+        <li class="pro">
+          <span class="check">✓</span>
+          <span><b>Built with Australian wineries</b> shipping to Europe.</span>
+        </li>
+      </ul>
+
+      <div class="cta-row">
+        <a class="btn btn-solid btn-lg" href="VineLabel Dashboard.html">Start free — 2 labels included.</a>
+      </div>
+    </div>
+
+    <aside class="right" aria-hidden="true">
+      <div class="note">
+        every bottle gets one
+        <span class="arrow">↓</span>
+      </div>
+      <div class="stamp" role="img" aria-label="EU DPP Ready">
+        <div>
+          <div class="top">Compliant</div>
+          <div class="big">EU&nbsp;DPP</div>
+          <div class="small">Ready</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="mood-strip" aria-hidden="true">
+    <span class="hr"></span>
+    <span class="center">pour a glass · take your time</span>
+    <span class="hr"></span>
+  </div>
+
+</div>
+
+</body>
+</html>

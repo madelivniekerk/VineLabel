@@ -1,0 +1,597 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VineLabel — QR Code</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #15110d;
+    --ink-soft: #2a221a;
+    --paper: #f3ead9;
+    --paper-card: #f6efe0;
+    --paper-input: #ede2c8;
+    --paper-deep: #ece1c8;
+    --paper-soft: #faf3e2;
+    --wine: #7a1d24;
+    --wine-bright: #9c2731;
+    --gold: #c89a5a;
+    --olive: #4f6b3a;
+    --amber: #b87527;
+    --muted: #b7a786;
+    --muted-dark: #6e5a3d;
+    --line: rgba(40,28,18,0.12);
+    --line-strong: rgba(40,28,18,0.22);
+    --shadow-card: 0 12px 30px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background: #0c0907;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ---------- stage (matches landing) ---------- */
+  .stage {
+    position: relative;
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+    background-image: url('assets/wine-bg.jpg');
+    background-size: cover;
+    background-position: center right;
+    background-repeat: no-repeat;
+    background-color: #1a0f08;
+  }
+  .stage::before {
+    content: '';
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.78) 28%, rgba(12,8,6,0.25) 55%, rgba(12,8,6,0.05) 80%),
+      radial-gradient(ellipse at 18% 50%, rgba(0,0,0,0.55) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .stage::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 56px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+  .logo-mark {
+    width: 44px; height: 44px;
+    border-radius: 8px;
+    background: var(--wine);
+    color: var(--paper);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif;
+    font-size: 22px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--paper); }
+  .logo-sub { font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .nav-link { font-size: 14px; color: rgba(243,234,217,0.7); text-decoration: none; padding: 8px 4px; }
+  .nav-link:hover { color: var(--paper); }
+  .nav-link.is-active { color: var(--paper); border-bottom: 1px solid var(--gold); padding-bottom: 4px; }
+
+  .user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border: 1px solid rgba(243,234,217,0.22);
+    border-radius: 999px;
+    background: rgba(243,234,217,0.04);
+    cursor: pointer;
+    color: var(--paper);
+  }
+  .user:hover { background: rgba(243,234,217,0.1); }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gold);
+    color: var(--ink);
+    display: grid; place-items: center;
+    font-family: 'Gloock', serif;
+    font-size: 15px;
+  }
+  .user-name { font-size: 13px; }
+  .user-caret { font-size: 10px; opacity: 0.7; }
+
+  /* ---------- page ---------- */
+  .page {
+    position: relative; z-index: 2;
+    padding: 12px 56px 24px;
+    display: grid;
+    grid-template-columns: minmax(0, 780px) minmax(0, 1fr);
+    gap: 40px;
+    height: calc(100vh - 88px);
+    min-height: 0;
+  }
+  .left-col { display: flex; flex-direction: column; min-height: 0; }
+
+  .crumbs {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: rgba(243,234,217,0.55);
+    flex: 0 0 auto;
+  }
+  .crumbs a { color: rgba(243,234,217,0.85); text-decoration: none; }
+  .crumbs a:hover { color: var(--paper); }
+  .crumbs .sep { opacity: 0.5; }
+
+  /* ---------- main card (sticky chrome + scrollable middle) ---------- */
+  .card {
+    background: var(--paper-card);
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+  .card-scroll {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    min-height: 0;
+    scrollbar-color: rgba(122,29,36,0.4) transparent;
+  }
+  .card-scroll::-webkit-scrollbar { width: 10px; }
+  .card-scroll::-webkit-scrollbar-track { background: transparent; }
+  .card-scroll::-webkit-scrollbar-thumb { background: rgba(122,29,36,0.35); border-radius: 999px; border: 2px solid var(--paper-card); }
+  .card-scroll::-webkit-scrollbar-thumb:hover { background: rgba(122,29,36,0.55); }
+
+  .card-head {
+    display: flex; align-items: center; gap: 18px;
+    padding: 22px 28px;
+    border-bottom: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .back-btn {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 18px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .back-btn:hover { background: rgba(0,0,0,0.04); }
+  .head-title {
+    font-family: 'Gloock', serif;
+    font-size: 32px;
+    line-height: 1.05;
+    margin: 0;
+    flex: 1;
+  }
+  .head-eye {
+    font-family: 'Caveat', cursive;
+    color: var(--wine);
+    font-size: 22px;
+  }
+  .save-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px;
+    color: var(--muted-dark);
+    padding: 6px 12px;
+    background: rgba(0,0,0,0.04);
+    border-radius: 999px;
+  }
+  .save-chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--olive); box-shadow: 0 0 0 3px rgba(79,107,58,0.18); }
+
+  /* ---------- product summary strip ---------- */
+  .product-strip {
+    display: flex; align-items: stretch; gap: 18px;
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .product-strip::before {
+    content: '';
+    position: absolute; left: 28px; top: 22px; bottom: 22px;
+    width: 3px;
+    border-radius: 3px;
+    background: var(--wine);
+    opacity: 0.85;
+  }
+  .product-thumb {
+    width: 76px; height: 76px;
+    border-radius: 12px;
+    background: #2a1212;
+    flex: 0 0 76px;
+    overflow: hidden;
+    margin-left: 14px;
+  }
+  .product-thumb svg { width: 100%; height: 100%; display: block; }
+  .product-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .product-name {
+    font-family: 'Gloock', serif;
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--ink);
+    margin: 0;
+  }
+  .product-sub { font-size: 14px; color: var(--muted-dark); }
+  .scores { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .score {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: rgba(0,0,0,0.02);
+    color: var(--muted-dark);
+  }
+  .score .glyph {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(0,0,0,0.05);
+    font-size: 11px;
+    font-weight: 700;
+    color: currentColor;
+  }
+  .score.is-ok { color: var(--olive); border-color: rgba(79,107,58,0.4); background: rgba(79,107,58,0.08); }
+  .score.is-ok .glyph { background: rgba(79,107,58,0.18); }
+  .score.is-warn { color: var(--amber); border-color: rgba(184,117,39,0.45); background: rgba(184,117,39,0.08); }
+  .score.is-warn .glyph { background: rgba(184,117,39,0.18); }
+
+  /* ---------- QR section ---------- */
+  .qr-section {
+    padding: 36px 28px 32px;
+    display: grid;
+    place-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .qr-frame {
+    background: #ffffff;
+    padding: 22px;
+    border-radius: 18px;
+    border: 1px solid var(--line);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.16), inset 0 0 0 1px rgba(255,255,255,0.4);
+    display: grid; place-items: center;
+  }
+  .qr {
+    --qr-size: 260px;
+    width: var(--qr-size); height: var(--qr-size);
+    display: block;
+  }
+  .qr rect.cell { fill: var(--ink); }
+
+  /* ---------- info row (EU print + URL) ---------- */
+  .info-block {
+    padding: 16px 28px 4px;
+  }
+  .info-card {
+    background: var(--paper-soft);
+    border-radius: 12px;
+    border: 1px solid var(--line);
+    padding: 14px 18px;
+    margin-bottom: 14px;
+  }
+  .info-card .k {
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--muted-dark);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .info-card .v {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .info-card .v strong { color: var(--ink); font-weight: 600; }
+  .info-card.url .v {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    color: var(--wine);
+    word-break: break-all;
+  }
+  .url-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .copy-btn {
+    flex: 0 0 auto;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .copy-btn:hover { background: rgba(0,0,0,0.04); }
+
+  /* ---------- footer / actions ---------- */
+  .card-footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 18px 28px;
+    background: rgba(0,0,0,0.025);
+    border-top: 1px solid var(--line);
+    flex: 0 0 auto;
+  }
+  .btn {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease, border-color .12s ease;
+    text-decoration: none;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .btn-secondary {
+    color: var(--ink);
+    border-color: var(--line-strong);
+    background: transparent;
+  }
+  .btn-secondary:hover { background: rgba(0,0,0,0.04); }
+  .btn-primary {
+    color: var(--paper);
+    background: var(--wine);
+    border-color: var(--wine);
+    box-shadow: 0 8px 20px rgba(122,29,36,0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+  }
+  .btn-primary:hover { background: var(--wine-bright); border-color: var(--wine-bright); transform: translateY(-1px); }
+  .edit-link {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 12px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    border-top: 1px dashed var(--line);
+    margin-top: 4px;
+    border-radius: 8px;
+  }
+  .edit-link:hover { background: rgba(0,0,0,0.03); color: var(--ink); }
+
+  /* right spacer */
+  .right-spacer { position: relative; }
+
+  /* responsive */
+  @media (max-width: 1100px) {
+    .stage { background-position: 70% center; height: auto; min-height: 100vh; overflow: visible; }
+    .stage::before { background: linear-gradient(180deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.88) 40%, rgba(12,8,6,0.92) 100%); }
+    .page { grid-template-columns: 1fr; padding: 12px 24px 60px; height: auto; }
+    .card { height: auto; }
+    .card-scroll { overflow: visible; }
+    .right-spacer { display: none; }
+    .nav { padding: 18px 24px; }
+  }
+  @media (max-width: 640px) {
+    .product-strip { flex-wrap: wrap; padding: 18px 18px; }
+    .product-thumb { margin-left: 0; }
+    .qr-section { padding: 24px 18px 22px; }
+    .info-block { padding-left: 18px; padding-right: 18px; }
+    .card-footer { grid-template-columns: 1fr; padding-left: 18px; padding-right: 18px; }
+    .head-eye, .save-chip { display: none; }
+    .nav-link { display: none; }
+    .user-name { display: none; }
+    .qr { --qr-size: 200px; }
+    .product-name { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <nav class="nav" aria-label="Primary">
+    <a class="logo" href="dashboard.html">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <div class="logo-name">VineLabel</div>
+        <div class="logo-sub">EU DPP STUDIO</div>
+      </div>
+    </a>
+    <div class="nav-right">
+      <a class="nav-link is-active" href="dashboard.html">Products</a>
+      <a class="nav-link" href="#">Compliance</a>
+      <a class="nav-link" href="#">Help</a>
+      <button class="user" type="button" aria-label="Account menu">
+        <span class="avatar">S</span>
+        <span class="user-name">Springvale Estate</span>
+        <span class="user-caret">▾</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="page">
+
+    <section class="left-col">
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="dashboard.html">Products</a>
+        <span class="sep">/</span>
+        <a href="#">Madeli Test</a>
+        <span class="sep">/</span>
+        <span>QR Code</span>
+      </nav>
+
+      <div class="card">
+
+        <header class="card-head">
+          <a class="back-btn" href="dashboard.html" aria-label="Back to products">←</a>
+          <h1 class="head-title">QR Code</h1>
+          <span class="head-eye">ready to print</span>
+          <span class="save-chip"><span class="dot"></span>Published</span>
+        </header>
+
+        <div class="card-scroll">
+
+          <!-- product summary -->
+          <section class="product-strip">
+            <div class="product-thumb" aria-hidden="true">
+              <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
+                <rect width="76" height="76" fill="#2a1212"/>
+                <g transform="translate(12,14)">
+                  <circle cx="8" cy="10" r="6" fill="#5a1f2a"/>
+                  <circle cx="20" cy="8" r="6" fill="#3a121a"/>
+                  <circle cx="32" cy="10" r="6" fill="#5a1f2a"/>
+                  <circle cx="44" cy="8" r="6" fill="#3a121a"/>
+                  <circle cx="14" cy="20" r="6" fill="#3a121a"/>
+                  <circle cx="26" cy="22" r="6" fill="#5a1f2a"/>
+                  <circle cx="38" cy="20" r="6" fill="#3a121a"/>
+                  <circle cx="20" cy="32" r="6" fill="#5a1f2a"/>
+                  <circle cx="32" cy="34" r="6" fill="#3a121a"/>
+                  <path d="M26 0 Q34 -2 42 4" stroke="#8a7a3a" stroke-width="1.6" fill="none"/>
+                  <path d="M28 -1 q-1 4 2 5" stroke="#2a7a3a" stroke-width="1.4" fill="none"/>
+                </g>
+              </svg>
+            </div>
+            <div class="product-meta">
+              <h2 class="product-name">Madeli Test</h2>
+              <div class="product-sub">Penfolds</div>
+              <div class="scores" aria-label="Compliance scores">
+                <span class="score is-ok"><span class="glyph">✓</span>EU E-Label 100%</span>
+                <span class="score is-warn"><span class="glyph">!</span>Packaging 60%</span>
+                <span class="score is-warn"><span class="glyph">!</span>DPP Carbon 66%</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- QR display -->
+          <section class="qr-section" aria-label="QR code">
+            <div class="qr-frame">
+              <svg class="qr" viewBox="0 0 33 33" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+                <!-- decorative pseudo-QR built from a fixed bitmap so it always looks right;
+                     real QR is generated server-side from the consumer URL -->
+                <g id="qr-cells"></g>
+              </svg>
+            </div>
+          </section>
+
+          <!-- info -->
+          <div class="info-block">
+            <div class="info-card">
+              <div class="k">EU print requirement</div>
+              <div class="v">Minimum print size: <strong>13 × 13 mm at 300 DPI</strong> as required by EU Reg. 2021/2117.</div>
+            </div>
+            <div class="info-card url">
+              <div class="k">Label URL</div>
+              <div class="url-row">
+                <div class="v">https://vinelabel.eu/l/6dfcf646</div>
+                <button class="copy-btn" type="button" onclick="copyURL(this)">Copy</button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /card-scroll -->
+
+        <footer class="card-footer">
+          <button type="button" class="btn btn-primary" onclick="alert('QR downloaded — placeholder')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download QR
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="window.open('#','_blank')">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            Preview Label
+          </button>
+          <a class="edit-link" href="new-product.html">Edit Product</a>
+        </footer>
+
+      </div><!-- /card -->
+    </section>
+
+    <aside class="right-spacer" aria-hidden="true"></aside>
+
+  </main>
+
+</div>
+
+<script>
+  // Build a deterministic decorative QR bitmap so the rendering looks like a real QR.
+  (function(){
+    const svg = document.getElementById('qr-cells');
+    if (!svg) return;
+    const N = 33;
+    // pseudo-random but stable pattern
+    let seed = 6463;
+    const rand = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const grid = [];
+    for (let y = 0; y < N; y++) {
+      const row = [];
+      for (let x = 0; x < N; x++) row.push(rand() > 0.5 ? 1 : 0);
+      grid.push(row);
+    }
+    // finder squares (top-left, top-right, bottom-left)
+    const stampFinder = (ox, oy) => {
+      for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+        const onEdge = (x === 0 || x === 6 || y === 0 || y === 6);
+        const onInner = (x >= 2 && x <= 4 && y >= 2 && y <= 4);
+        grid[oy + y][ox + x] = (onEdge || onInner) ? 1 : 0;
+      }
+      // quiet border
+      for (let y = -1; y <= 7; y++) for (let x = -1; x <= 7; x++) {
+        const gx = ox + x, gy = oy + y;
+        if (gx < 0 || gy < 0 || gx >= N || gy >= N) continue;
+        if (x === -1 || x === 7 || y === -1 || y === 7) {
+          if (x >= -1 && x <= 7 && y >= -1 && y <= 7 && !(x >= 0 && x <= 6 && y >= 0 && y <= 6)) {
+            // only the immediate ring
+            if (x === -1 || x === 7 || y === -1 || y === 7) grid[gy][gx] = 0;
+          }
+        }
+      }
+    };
+    stampFinder(0, 0);
+    stampFinder(N - 7, 0);
+    stampFinder(0, N - 7);
+    // small alignment block
+    const ox = N - 9, oy = N - 9;
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) {
+      const onEdge = (x === 0 || x === 4 || y === 0 || y === 4);
+      const center = (x === 2 && y === 2);
+      grid[oy + y][ox + x] = (onEdge || center) ? 1 : 0;
+    }
+    // emit cells
+    const cell = 1; // 1 unit per cell, svg viewBox is 33
+    let frag = '';
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      if (grid[y][x]) frag += `<rect class="cell" x="${x}" y="${y}" width="${cell}" height="${cell}"/>`;
+    }
+    svg.innerHTML = frag;
+  })();
+
+  function copyURL(btn) {
+    const url = 'https://vinelabel.eu/l/6dfcf646';
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1200);
+      });
+    }
+  }
+</script>
+
+</body>
+</html>

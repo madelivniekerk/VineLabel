@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>VineLabel — Products</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --ink: #15110d;
+    --paper: #f3ead9;
+    --paper-card: #f6efe0;
+    --paper-deep: #ece1c8;
+    --wine: #7a1d24;
+    --wine-bright: #9c2731;
+    --gold: #c89a5a;
+    --olive: #4f6b3a;
+    --muted: #b7a786;
+    --muted-dark: #6e5a3d;
+    --ink-soft: #2a221a;
+    --line: rgba(40,28,18,0.12);
+    --shadow-card: 0 12px 30px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: var(--paper);
+    background: #0c0907;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  .stage {
+    position: relative; min-height: 100vh;
+    background-image: url('assets/wine-bg.jpg');
+    background-size: cover; background-position: center right;
+    background-repeat: no-repeat; background-color: #1a0f08;
+  }
+  .stage::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      linear-gradient(95deg, rgba(12,8,6,0.96) 0%, rgba(12,8,6,0.86) 38%, rgba(12,8,6,0.45) 62%, rgba(12,8,6,0.15) 82%),
+      radial-gradient(ellipse at 20% 50%, rgba(0,0,0,0.55) 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .stage::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.55) 100%);
+    pointer-events: none;
+  }
+
+  .nav {
+    position: relative; z-index: 3;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 56px;
+  }
+  .logo { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+  .logo-mark {
+    width: 44px; height: 44px; border-radius: 8px; background: var(--wine); color: var(--paper);
+    display: grid; place-items: center; font-family: 'Gloock', serif; font-size: 22px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .logo-text { line-height: 1.1; }
+  .logo-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--paper); }
+  .logo-sub { font-size: 10.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  .nav-right { display: flex; align-items: center; gap: 14px; }
+  .nav-link { font-size: 14px; color: rgba(243,234,217,0.7); text-decoration: none; padding: 8px 4px; }
+  .nav-link:hover { color: var(--paper); }
+
+  .user {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 14px 6px 6px;
+    border: 1px solid rgba(243,234,217,0.22); border-radius: 999px;
+    background: rgba(243,234,217,0.04); cursor: pointer; color: var(--paper);
+    transition: background .15s ease;
+  }
+  .user:hover { background: rgba(243,234,217,0.1); }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--gold); color: var(--ink);
+    display: grid; place-items: center; font-family: 'Gloock', serif; font-size: 15px;
+  }
+  .user-name { font-size: 13px; }
+  .user-caret { font-size: 10px; opacity: 0.7; }
+
+  .page {
+    position: relative; z-index: 2;
+    padding: 12px 56px 80px;
+    display: grid; grid-template-columns: minmax(0, 760px) minmax(0, 1fr);
+    gap: 40px; min-height: calc(100vh - 88px);
+  }
+  .panel { padding-top: 8px; }
+
+  .panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 22px; }
+  .panel-title { font-family: 'Gloock', serif; font-size: 36px; line-height: 1.1; margin: 0; color: var(--paper); letter-spacing: -0.005em; }
+  .panel-eye { font-family: 'Caveat', cursive; color: var(--gold); font-size: 22px; }
+
+  .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  .stat { background: var(--paper-card); border-radius: 14px; padding: 22px 18px 18px; text-align: center; box-shadow: var(--shadow-card); color: var(--ink); }
+  .stat-num { font-family: 'Gloock', serif; font-size: 56px; line-height: 1; color: var(--wine); }
+  .stat-num.is-published { color: var(--olive); }
+  .stat-num.is-drafts { color: var(--ink-soft); }
+  .stat-label { margin-top: 10px; font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--muted-dark); font-weight: 600; }
+
+  .group { background: var(--paper-card); border-radius: 14px; box-shadow: var(--shadow-card); color: var(--ink); margin-bottom: 18px; overflow: hidden; }
+  .group-summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;
+    color: var(--wine); user-select: none;
+  }
+  .group-summary::-webkit-details-marker { display: none; }
+  .group-summary .chev {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: rgba(122,29,36,0.08); color: var(--wine); font-size: 12px;
+    transition: transform .2s ease;
+  }
+  .group[open] .group-summary .chev { transform: rotate(90deg); }
+  .group-body { padding: 4px 20px 22px; }
+
+  .group-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 0 16px; border-bottom: 1px solid var(--line); margin-bottom: 14px; }
+  .group-name { font-family: 'Inter', sans-serif; font-size: 18px; font-weight: 700; color: var(--ink); }
+  .group-meta { font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted-dark); display: flex; gap: 12px; align-items: center; }
+  .group-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+
+  .product { display: flex; align-items: center; gap: 16px; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fbf5e6; margin-bottom: 10px; position: relative; }
+  .product::before { content: ''; position: absolute; left: -1px; top: 8px; bottom: 8px; width: 3px; border-radius: 3px; background: var(--wine); opacity: 0.85; }
+  .product:last-child { margin-bottom: 0; }
+  .thumb { width: 54px; height: 54px; border-radius: 10px; background: var(--paper-deep); display: grid; place-items: center; flex: 0 0 54px; overflow: hidden; }
+  .thumb svg { width: 100%; height: 100%; display: block; }
+  .product-main { flex: 1; min-width: 0; }
+  .product-name { font-family: 'Gloock', serif; font-size: 22px; color: var(--ink); line-height: 1.1; margin: 0 0 4px; }
+  .product-meta { font-size: 13px; color: var(--muted-dark); }
+  .product-actions { display: flex; align-items: center; gap: 10px; flex: 0 0 auto; }
+
+  .actions-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: transparent; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500;
+    color: var(--ink); cursor: pointer; transition: background .12s ease, border-color .12s ease;
+  }
+  .actions-btn:hover { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.18); }
+  .actions-btn .caret { font-size: 9px; opacity: 0.6; }
+
+  .badge { font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted-dark); font-weight: 600; background: rgba(0,0,0,0.02); }
+  .badge.is-published { color: var(--olive); border-color: rgba(79,107,58,0.4); background: rgba(79,107,58,0.08); }
+
+  .new-btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; padding: 18px; border: none; border-radius: 14px;
+    background: var(--wine); color: var(--paper);
+    font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    box-shadow: 0 10px 24px rgba(122,29,36,0.45), inset 0 1px 0 rgba(255,255,255,0.1);
+    transition: background .15s ease, transform .15s ease;
+    margin-bottom: 18px;
+  }
+  .new-btn:hover { background: var(--wine-bright); transform: translateY(-1px); }
+  .new-btn .plus { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,0.15); font-size: 16px; line-height: 1; }
+
+  .settings { background: var(--paper-card); border-radius: 14px; box-shadow: var(--shadow-card); color: var(--ink); }
+  .settings summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 12px; padding: 16px 20px; font-size: 15px; font-weight: 600; color: var(--ink); }
+  .settings summary::-webkit-details-marker { display: none; }
+  .settings summary .chev { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,0.05); color: var(--ink-soft); font-size: 12px; transition: transform .2s ease; }
+  .settings[open] summary .chev { transform: rotate(90deg); }
+  .settings-icon { width: 22px; height: 22px; display: grid; place-items: center; color: var(--gold); font-size: 16px; }
+  .settings-body { padding: 4px 20px 22px; font-size: 14px; color: var(--muted-dark); border-top: 1px solid var(--line); margin-top: 4px; }
+  .settings-body .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--line); color: var(--ink-soft); font-size: 14px; }
+  .settings-body .row:last-child { border-bottom: none; }
+  .settings-body .row .k { color: var(--muted-dark); }
+  .settings-body .row .v { font-weight: 500; }
+
+  .right-spacer { position: relative; }
+
+  @media (max-width: 1100px) {
+    .stage { background-position: 70% center; }
+    .stage::before { background: linear-gradient(180deg, rgba(12,8,6,0.92) 0%, rgba(12,8,6,0.86) 40%, rgba(12,8,6,0.9) 100%); }
+    .page { grid-template-columns: 1fr; padding: 12px 24px 60px; }
+    .right-spacer { display: none; }
+    .nav { padding: 18px 24px; }
+  }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr; }
+    .product { flex-wrap: wrap; }
+    .product-actions { width: 100%; justify-content: flex-end; }
+    .stat-num { font-size: 44px; }
+    .user-name { display: none; }
+    .nav-link { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <nav class="nav" aria-label="Primary">
+    <a class="logo" href="landing.html">
+      <div class="logo-mark">V</div>
+      <div class="logo-text">
+        <div class="logo-name">VineLabel</div>
+        <div class="logo-sub">EU DPP Studio</div>
+      </div>
+    </a>
+    <div class="nav-right">
+      <a class="nav-link" href="https://vinelabel-app.streamlit.app">Products</a>
+      <a class="nav-link" href="https://vinelabel-app.streamlit.app">Compliance</a>
+      <a class="nav-link" href="#">Help</a>
+      <button class="user" type="button" aria-label="Account menu">
+        <span class="avatar">S</span>
+        <span class="user-name">Springvale Estate</span>
+        <span class="user-caret">▾</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="page">
+    <section class="panel" aria-labelledby="panel-h">
+      <header class="panel-head">
+        <h1 class="panel-title" id="panel-h">Your products</h1>
+        <span class="panel-eye">welcome back, Sarah</span>
+      </header>
+
+      <div class="stats" role="list">
+        <div class="stat" role="listitem">
+          <div class="stat-num">2</div>
+          <div class="stat-label">Products</div>
+        </div>
+        <div class="stat" role="listitem">
+          <div class="stat-num is-published">0</div>
+          <div class="stat-label">Published</div>
+        </div>
+        <div class="stat" role="listitem">
+          <div class="stat-num is-drafts">2</div>
+          <div class="stat-label">Drafts</div>
+        </div>
+      </div>
+
+      <details class="group" open>
+        <summary class="group-summary">
+          <span class="chev" aria-hidden="true">▶</span>
+          Red wine
+        </summary>
+        <div class="group-body">
+          <div class="group-head">
+            <div class="group-name">Red wine</div>
+            <div class="group-meta">
+              <span>2 Products</span><span class="dot"></span>
+              <span>0 Published</span><span class="dot"></span>
+              <span>0 Fully Compliant</span>
+            </div>
+          </div>
+
+          <article class="product">
+            <div class="thumb" aria-hidden="true">
+              <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+                <rect width="54" height="54" fill="#2a1212"/>
+                <g transform="translate(8,10)">
+                  <circle cx="6" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="14" cy="6" r="4.5" fill="#3a121a"/>
+                  <circle cx="22" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="30" cy="6" r="4.5" fill="#3a121a"/>
+                  <circle cx="10" cy="14" r="4.5" fill="#3a121a"/><circle cx="18" cy="16" r="4.5" fill="#5a1f2a"/>
+                  <circle cx="26" cy="14" r="4.5" fill="#3a121a"/><circle cx="14" cy="22" r="4.5" fill="#5a1f2a"/>
+                  <circle cx="22" cy="24" r="4.5" fill="#3a121a"/>
+                  <path d="M18 0 Q22 -2 26 2" stroke="#8a7a3a" stroke-width="1.4" fill="none"/>
+                </g>
+              </svg>
+            </div>
+            <div class="product-main">
+              <h3 class="product-name">Barossa Wine Valley</h3>
+              <div class="product-meta">Shiraz · Barossa Valley</div>
+            </div>
+            <div class="product-actions">
+              <button class="actions-btn" type="button">Actions <span class="caret">▾</span></button>
+              <span class="badge">Draft</span>
+            </div>
+          </article>
+
+          <article class="product">
+            <div class="thumb" aria-hidden="true">
+              <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
+                <rect width="54" height="54" fill="#3b1820"/>
+                <g transform="translate(15,10)" fill="none">
+                  <path d="M2 4 L22 4 L20 16 Q12 22 4 16 Z" fill="#e6b8c8" stroke="#9a4f5e" stroke-width="1.2"/>
+                  <path d="M4 6 L20 6 L18.5 14 Q12 18 5.5 14 Z" fill="#c97186"/>
+                  <line x1="12" y1="22" x2="12" y2="30" stroke="#9a4f5e" stroke-width="1.6"/>
+                  <line x1="6" y1="32" x2="18" y2="32" stroke="#9a4f5e" stroke-width="1.6"/>
+                </g>
+              </svg>
+            </div>
+            <div class="product-main">
+              <h3 class="product-name">Barossa white 2021</h3>
+              <div class="product-meta">Chardonnay · Barossa Valley</div>
+            </div>
+            <div class="product-actions">
+              <button class="actions-btn" type="button">Actions <span class="caret">▾</span></button>
+              <span class="badge">Draft</span>
+            </div>
+          </article>
+        </div>
+      </details>
+
+      <a class="new-btn" href="new-product.html">
+        <span class="plus">+</span>
+        New Product
+      </a>
+
+      <details class="settings">
+        <summary>
+          <span class="chev" aria-hidden="true">▶</span>
+          <span class="settings-icon" aria-hidden="true">✦</span>
+          Settings
+        </summary>
+        <div class="settings-body">
+          <div class="row"><span class="k">Winery</span><span class="v">Springvale Estate</span></div>
+          <div class="row"><span class="k">Default importer</span><span class="v">Berlin DPP Hub</span></div>
+          <div class="row"><span class="k">Label language</span><span class="v">English · German · French</span></div>
+          <div class="row"><span class="k">Plan</span><span class="v">Free — 2 labels remaining</span></div>
+        </div>
+      </details>
+    </section>
+
+    <aside class="right-spacer" aria-hidden="true"></aside>
+  </main>
+
+</div>
+<script>
+(function () {
+  var appRoot = window.location.origin + '/';
+
+  function makeMenu(wrapper) {
+    var menu = document.createElement('div');
+    menu.style.cssText =
+      'position:absolute;right:0;top:calc(100% + 6px);background:#f3ead9;' +
+      'border:1px solid rgba(40,28,18,0.12);border-radius:10px;' +
+      'box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;min-width:148px;overflow:hidden;';
+
+    var newProductUrl = 'new-product.html';
+    var qrUrl = 'qr.html';
+    [['✏️  Edit', newProductUrl], ['⬜  QR Code', qrUrl], ['✓  Publish', appRoot]].forEach(function (item) {
+      var a = document.createElement('a');
+      a.href = item[1];
+      a.textContent = item[0];
+      a.style.cssText =
+        'display:block;padding:11px 16px;font-family:Inter,sans-serif;font-size:14px;' +
+        'color:#15110d;text-decoration:none;white-space:nowrap;';
+      a.addEventListener('mouseenter', function () { a.style.background = '#f1e6cd'; });
+      a.addEventListener('mouseleave', function () { a.style.background = ''; });
+      menu.appendChild(a);
+    });
+    return menu;
+  }
+
+  document.querySelectorAll('.actions-btn').forEach(function (btn) {
+    var wrap = btn.closest('.product-actions');
+    wrap.style.position = 'relative';
+    var open = null;
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (open) { open.remove(); open = null; return; }
+      open = makeMenu(wrap);
+      wrap.appendChild(open);
+    });
+
+    document.addEventListener('click', function () {
+      if (open) { open.remove(); open = null; }
+    });
+  });
+})();
+</script>
+</body>
+</html>
