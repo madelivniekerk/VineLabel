@@ -1002,7 +1002,6 @@ def show_public_label(pid, is_preview=False):
         st.markdown(f'<div style="display:inline-flex;align-items:center;gap:6px;background:{C["gold"]}14;border:1px solid {C["gold"]}30;border-radius:999px;padding:4px 12px;margin-bottom:14px;"><span style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.14em;color:{C["gold"]};text-transform:uppercase;">PDO/PGI</span><span style="font-family:Space Grotesk,sans-serif;font-size:12px;font-weight:600;color:{C["ink"]};">{p["pdo_pgi"]}</span></div>', unsafe_allow_html=True)
 
     # Key facts strip
-    _price_str = f'{p["price_currency"]} {p["price_rrp"]:.2f}' if p.get("price_rrp") and p.get("price_currency") else None
     facts = [(l, v) for l, v in [
         ("ABV", f'{p["abv"]}%' if p.get("abv") else None),
         ("Net qty", p.get("net_quantity") or None),
@@ -1010,7 +1009,6 @@ def show_public_label(pid, is_preview=False):
         ("Sweetness", p.get("sweetness_descriptor") or None),
         ("Dosage", p.get("sparkling_dosage") or None),
         ("Best before", _fmt_date(p.get("best_before_date"))),
-        ("RRP", _price_str),
     ] if v]
     if facts:
         cells = "".join([
@@ -1019,6 +1017,22 @@ def show_public_label(pid, is_preview=False):
             f'<div style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:{C["ink"]};margin-top:2px;">{v}</div></div>'
             for l, v in facts])
         st.markdown(f'<div style="display:grid;grid-template-columns:1fr 1fr;background:{C["paper"]};border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:14px;">{cells}</div>', unsafe_allow_html=True)
+
+    # Market pricing
+    _market_prices = p.get("market_prices", [])
+    if _market_prices:
+        st.markdown(mlabel(_ui("Pricing")), unsafe_allow_html=True)
+        _mp_rows = "".join([
+            f'<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 14px;background:{C["paper"] if i%2==0 else C["bg"]};">'
+            f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};">{mp["market"]}</div>'
+            f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:700;color:{C["ink"]};">{mp["currency"]} {float(mp["price"]):.2f}</div>'
+            f'</div>'
+            for i, mp in enumerate(_market_prices)
+        ])
+        st.markdown(f'<div style="background:{C["paper"]};border:1px solid {C["ink08"]};border-radius:12px;overflow:hidden;margin-bottom:14px;">{_mp_rows}</div>', unsafe_allow_html=True)
+    elif p.get("price_rrp") and p.get("price_currency"):
+        st.markdown(mlabel(_ui("Pricing")), unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;font-weight:700;color:{C["ink"]};padding:10px 14px;background:{C["paper"]};border:1px solid {C["ink08"]};border-radius:12px;margin-bottom:14px;">{p["price_currency"]} {p["price_rrp"]:.2f}</div>', unsafe_allow_html=True)
 
     # Ingredients
     ingredients = p.get("ingredients", [])
@@ -1203,7 +1217,13 @@ def _product_card(p):
 
     scol = C["green"] if is_pub else C["gold"]
     slbl = (p.get("status") or "draft").upper()
-    _price = f' · {p["price_currency"]} {p["price_rrp"]:.2f}' if p.get("price_rrp") and p.get("price_currency") else ""
+    if p.get("market_prices"):
+        _price = " · " + " / ".join(f'{mp["currency"]} {float(mp["price"]):.0f}' for mp in p["market_prices"][:3])
+        if len(p["market_prices"]) > 3: _price += " …"
+    elif p.get("price_rrp") and p.get("price_currency"):
+        _price = f' · {p["price_currency"]} {p["price_rrp"]:.2f}'
+    else:
+        _price = ""
     _th_ext  = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
     _th_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_th_ext, "image/jpeg")
     _thumb = (f'<img src="data:{_th_mime};base64,{p["product_image"]}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;" />'
@@ -1716,6 +1736,7 @@ def show_product_form(existing=None):
         with w2: responsible_drinking = st.checkbox("Include responsible drinking statement", value=p.get("responsible_drinking", False), help="'Drink responsibly' — voluntary but strongly recommended")
 
     # ── 10 · Optional ─────────────────────────────────────────────────────
+    _rm_price = {}
     with st.expander("10 · Optional", expanded=False):
         storage_info = st.text_input("Storage information", value=p.get("storage_info", ""), placeholder="Store in a cool, dark place. Serve at 16–18°C.")
         website      = st.text_input("Producer website", value=p.get("website", ""), placeholder="https://www.winery.com.au")
@@ -1723,10 +1744,32 @@ def show_product_form(existing=None):
         _saved_lang = p.get("label_language", "en")
         _lang_idx = list(_LABEL_LANG_OPTIONS.values()).index(_saved_lang) if _saved_lang in _LABEL_LANG_OPTIONS.values() else 0
         label_language = st.selectbox("Default label language", list(_LABEL_LANG_OPTIONS.keys()), index=_lang_idx, help="Pre-selects the language on the consumer label based on the product's primary market.")
-        _currencies = ["AUD", "EUR", "USD", "GBP", "NZD", "CAD"]
-        op1, op2 = st.columns([1, 3])
-        with op1: price_currency = st.selectbox("Currency", _currencies, index=_currencies.index(p.get("price_currency", "AUD")) if p.get("price_currency") in _currencies else 0)
-        with op2: price_rrp = st.number_input("RRP (recommended retail price)", min_value=0.0, value=float(p.get("price_rrp") or 0.0), step=0.50, format="%.2f")
+
+        st.markdown(f'<div style="height:8px;"></div>', unsafe_allow_html=True)
+        st.markdown(mlabel("Market Pricing"), unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Set an RRP per market — all prices are shown on the consumer label.</div>', unsafe_allow_html=True)
+        for _pi, _mp in enumerate(p.get("market_prices", [])):
+            _mpid = _mp.get("id") or str(_pi)
+            pc1, pc2 = st.columns([5, 1])
+            with pc1:
+                st.markdown(f'<div style="padding:6px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">🌍 <strong>{_mp["market"]}</strong> &nbsp;·&nbsp; {_mp["currency"]} {float(_mp["price"]):.2f}</div>', unsafe_allow_html=True)
+            with pc2:
+                _rm_price[_mpid] = st.button("Remove", key=f"rmp_{_mpid}", type="secondary")
+        if p.get("id"):
+            with st.form("price_add_form", clear_on_submit=True):
+                pa1, pa2, pa3 = st.columns([3, 1, 2])
+                with pa1: _p_market   = st.text_input("Market / Country", placeholder="e.g. Australia")
+                with pa2: _p_currency = st.selectbox("Currency", ["AUD", "EUR", "USD", "GBP", "NZD", "CAD", "CHF", "DKK", "SEK", "NOK"])
+                with pa3: _p_price    = st.number_input("RRP", min_value=0.0, step=0.50, format="%.2f")
+                if st.form_submit_button("+ Add Market Price", type="primary"):
+                    if _p_market.strip() and _p_price > 0:
+                        entry = {"id": str(uuid.uuid4())[:8], "market": _p_market.strip(), "currency": _p_currency, "price": _p_price}
+                        cur = get_product(p["id"])
+                        cur.setdefault("market_prices", []).append(entry)
+                        upsert_product(cur)
+                        st.rerun()
+                    else:
+                        st.warning("Please enter a market name and a price greater than 0.")
 
     # ── 11 · Product Image & Certificates ────────────────────────────────────
     _rm_img = False
@@ -1777,8 +1820,14 @@ def show_product_form(existing=None):
     st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     submitted = st.button("Save Product", type="primary", use_container_width=True)
 
-    # Section 11 actions — handled before save so rerun exits early
+    # Section 10 & 11 actions — handled before save so rerun exits early
     if p.get("id"):
+        for _mpid, _mp_clicked in _rm_price.items():
+            if _mp_clicked:
+                cur = get_product(p["id"])
+                cur["market_prices"] = [mp for mp in cur.get("market_prices", []) if (mp.get("id") or "") != _mpid]
+                upsert_product(cur)
+                st.rerun()
         if _rm_img:
             cur = get_product(p["id"])
             cur.pop("product_image", None)
@@ -1832,7 +1881,8 @@ def show_product_form(existing=None):
                 "physical_label_fields": physical_label_fields,
                 "pregnancy_warning": pregnancy_warning, "responsible_drinking": responsible_drinking,
                 "storage_info": (storage_info or "").strip(), "website": (website or "").strip(),
-                "price_rrp": price_rrp or None, "price_currency": price_currency,
+                "market_prices": p.get("market_prices", []),
+                "price_rrp": p.get("price_rrp"), "price_currency": p.get("price_currency"),
                 "label_language": _LABEL_LANG_OPTIONS[label_language],
                 "product_image": _new_img, "product_image_filename": _new_img_name,
                 "status": p.get("status", "draft"),
