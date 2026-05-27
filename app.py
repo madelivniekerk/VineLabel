@@ -1731,9 +1731,6 @@ def show_product_form(existing=None):
     # ── 11 · Product Image & Certificates ────────────────────────────────────
     _rm_img = False
     _rm_cert = {}
-    _attach_cert = False
-    _cert_name = _cert_issuer = _cert_expiry = ""
-    _cert_file = None
     _img_file = None
 
     with st.expander("11 · Product Image & Certificates", expanded=False):
@@ -1760,13 +1757,22 @@ def show_product_form(existing=None):
                 st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{_cert.get("name","")}</strong>' + (f' — {_cert["issuer"]}' if _cert.get("issuer") else "") + (f' · expires {_cert["expiry"]}' if _cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
             with cc2:
                 _rm_cert[_cid] = st.button("Remove", key=f"rm_{_cid}", type="secondary")
-        cf1, cf2, cf3 = st.columns(3)
-        with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
-        with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
-        with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
-        _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed", key="cert_upload")
         if p.get("id"):
-            _attach_cert = st.button("Attach Certificate", key="attach_cert_btn", type="primary")
+            with st.form("cert_upload_form", clear_on_submit=True):
+                cf1, cf2, cf3 = st.columns(3)
+                with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
+                with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
+                with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
+                _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed")
+                if st.form_submit_button("Attach Certificate", type="primary"):
+                    if _cert_file and _cert_name.strip():
+                        entry = {"id": str(uuid.uuid4())[:8], "name": _cert_name.strip(), "issuer": _cert_issuer.strip(), "expiry": _cert_expiry.strip(), "filename": _cert_file.name, "data": base64.b64encode(_cert_file.read()).decode()}
+                        cur = get_product(p["id"])
+                        cur.setdefault("certificates", []).append(entry)
+                        upsert_product(cur)
+                        st.rerun()
+                    else:
+                        st.warning("Please enter a certificate name and select a file.")
 
     st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     submitted = st.button("Save Product", type="primary", use_container_width=True)
@@ -1785,12 +1791,6 @@ def show_product_form(existing=None):
                 cur["certificates"] = [c for c in cur.get("certificates", []) if (c.get("id") or "") != _cid]
                 upsert_product(cur)
                 st.rerun()
-        if _attach_cert and _cert_file and _cert_name.strip():
-            entry = {"id": str(uuid.uuid4())[:8], "name": _cert_name.strip(), "issuer": _cert_issuer.strip(), "expiry": _cert_expiry.strip(), "filename": _cert_file.name, "data": base64.b64encode(_cert_file.read()).decode()}
-            cur = get_product(p["id"])
-            cur.setdefault("certificates", []).append(entry)
-            upsert_product(cur)
-            st.rerun()
 
     if submitted:
         _errs = []
