@@ -1590,14 +1590,15 @@ def show_product_form(existing=None):
 
         st.markdown(mlabel("Certificate Documents"), unsafe_allow_html=True)
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload PDFs — organic certificates, lab reports, export documents. Downloadable on the public label.</div>', unsafe_allow_html=True)
-        for cert in p.get("certificates", []):
+        for _ci, cert in enumerate(p.get("certificates", [])):
+            _cid = cert.get("id") or str(_ci)
             cc1, cc2 = st.columns([4, 1])
             with cc1:
-                st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{cert["name"]}</strong>' + (f' — {cert["issuer"]}' if cert.get("issuer") else "") + (f' · expires {cert["expiry"]}' if cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
+                st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{cert.get("name","")}</strong>' + (f' — {cert["issuer"]}' if cert.get("issuer") else "") + (f' · expires {cert["expiry"]}' if cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
             with cc2:
-                if st.button("Remove", key=f"rm_{cert['id']}", type="secondary"):
+                if st.button("Remove", key=f"rm_{_cid}", type="secondary"):
                     cur = get_product(p["id"])
-                    cur["certificates"] = [c for c in cur.get("certificates", []) if c["id"] != cert["id"]]
+                    cur["certificates"] = [c for c in cur.get("certificates", []) if (c.get("id") or "") != _cid]
                     upsert_product(cur); st.rerun()
         with st.form("cert_upload", clear_on_submit=True):
             cf1, cf2, cf3 = st.columns(3)
@@ -1606,18 +1607,15 @@ def show_product_form(existing=None):
             with cf3: cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
             cert_file  = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed")
             upload_btn = st.form_submit_button("Attach Certificate", type="primary")
-            if upload_btn and cert_name.strip():
-                if cert_file:
-                    _cfid = getattr(cert_file, "file_id", None) or cert_file.name
-                    if st.session_state.get("_last_cert_fid") != _cfid:
-                        st.session_state["_last_cert_fid"] = _cfid
-                        entry = {"id": str(uuid.uuid4())[:8], "name": cert_name.strip(), "issuer": cert_issuer.strip(), "expiry": cert_expiry.strip(), "filename": cert_file.name, "data": base64.b64encode(cert_file.read()).decode()}
-                        cur = get_product(p["id"])
-                        cur.setdefault("certificates", []).append(entry)
-                        upsert_product(cur)
-                        st.rerun()
-                else:
-                    st.warning("Please select a file to attach.")
+            if upload_btn and cert_file and cert_name.strip():
+                _cfid = getattr(cert_file, "file_id", None) or cert_file.name
+                if st.session_state.get("_last_cert_fid") != _cfid:
+                    st.session_state["_last_cert_fid"] = _cfid
+                    entry = {"id": str(uuid.uuid4())[:8], "name": cert_name.strip(), "issuer": cert_issuer.strip(), "expiry": cert_expiry.strip(), "filename": cert_file.name, "data": base64.b64encode(cert_file.read()).decode()}
+                    cur = get_product(p["id"])
+                    cur.setdefault("certificates", []).append(entry)
+                    upsert_product(cur)
+                    st.rerun()
 
         st.markdown(f'<div style="border-top:1px solid {C["paperEdge"]};margin:20px 0 16px;"></div>', unsafe_allow_html=True)
 
