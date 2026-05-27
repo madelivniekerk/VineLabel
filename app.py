@@ -293,8 +293,17 @@ def compliance_score(product):
 
 # ── QR ────────────────────────────────────────────────────────────────────────
 def get_label_url(pid):
-    base = st.session_state.get("base_url") or load_settings().get("base_url", "http://localhost:8501")
-    return f"{base}/?label={pid}"
+    saved = (st.session_state.get("base_url") or load_settings().get("base_url", "")).rstrip("/")
+    if saved:
+        return f"{saved}/?label={pid}"
+    # Auto-detect from request Host header so QR codes work on any deployment
+    try:
+        host = st.context.headers.get("Host", "")
+        if host and not host.startswith("localhost") and not host.startswith("127.0.0.1"):
+            return f"https://{host}/?label={pid}"
+    except Exception:
+        pass
+    return f"http://localhost:8501/?label={pid}"
 
 def make_qr_image(url):
     if not QR_AVAILABLE:
