@@ -1014,11 +1014,11 @@ def show_public_label(pid, is_preview=False):
     ] if v]
     if facts:
         cells = "".join([
-            f'<div style="flex:1;text-align:center;padding:10px 6px;border-right:1px solid {C["ink08"]};">'
+            f'<div style="text-align:center;padding:12px 8px;border-right:1px solid {C["ink08"]};border-bottom:1px solid {C["ink08"]};">'
             f'<div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink60"]};text-transform:uppercase;">{l}</div>'
             f'<div style="font-family:Space Grotesk,sans-serif;font-size:16px;font-weight:700;color:{C["ink"]};margin-top:2px;">{v}</div></div>'
             for l, v in facts])
-        st.markdown(f'<div style="display:flex;background:{C["paper"]};border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:14px;">{cells}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="display:grid;grid-template-columns:1fr 1fr;background:{C["paper"]};border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:14px;">{cells}</div>', unsafe_allow_html=True)
 
     # Ingredients
     ingredients = p.get("ingredients", [])
