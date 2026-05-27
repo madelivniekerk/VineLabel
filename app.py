@@ -1196,65 +1196,50 @@ def _product_card(p):
               if p.get("product_image") else
               f'<div style="width:52px;height:52px;border-radius:8px;background:{C["wine"]}18;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🍷</div>')
 
-    edit_sub = qr_sub = pub_sub = toggle_sub = False
-
-    with st.form(f"pcard_{pid}", clear_on_submit=False):
-        # Two-column: product info left, status badge + toggle right
-        info_col, ctrl_col = st.columns([0.68, 0.32])
-
-        with info_col:
+    # Product info + toggle row
+    info_col, ctrl_col = st.columns([0.68, 0.32])
+    with info_col:
+        st.markdown(
+            f'<div style="display:flex;align-items:flex-start;gap:12px;">'
+            f'{_thumb}'
+            f'<div style="flex:1;min-width:0;">'
+            f'<div style="font-family:Gloock,serif;font-size:20px;font-weight:600;color:{C["ink"]};line-height:1.2;letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
+            f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:3px;">{p.get("variety","")} · {p.get("region","")}{_price}</div>'
+            f'</div></div>',
+            unsafe_allow_html=True
+        )
+    with ctrl_col:
+        btn_col, badge_col = st.columns([0.52, 0.48])
+        with btn_col:
+            if st.button("▴ Close" if is_expanded else "▾ Actions", key=f"toggle_{pid}", use_container_width=True, type="secondary"):
+                st.session_state[exp_key] = not is_expanded
+                st.rerun()
+        with badge_col:
             st.markdown(
-                f'<div style="display:flex;align-items:flex-start;gap:12px;">'
-                f'{_thumb}'
-                f'<div style="flex:1;min-width:0;">'
-                f'<div style="font-family:Gloock,serif;font-size:20px;font-weight:600;color:{C["ink"]};line-height:1.2;letter-spacing:-0.01em;">{p["name"]} {p.get("vintage","")}</div>'
-                f'<div style="font-family:Inter,sans-serif;font-size:13px;color:{C["ink2"]};margin-top:3px;">{p.get("variety","")} · {p.get("region","")}{_price}</div>'
-                f'</div></div>',
+                f'<div style="text-align:right;padding-top:8px;">'
+                f'<span style="font-family:Inter,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
+                f'color:{scol};border:1px solid {scol}40;border-radius:999px;padding:3px 9px;white-space:nowrap;">{slbl}</span>'
+                f'</div>',
                 unsafe_allow_html=True
             )
 
-        with ctrl_col:
-            # Actions button left, DRAFT badge right — same row
-            btn_col, badge_col = st.columns([0.52, 0.48])
-            with btn_col:
-                toggle_sub = st.form_submit_button(
-                    "▴ Close" if is_expanded else "▾ Actions",
-                    use_container_width=True,
-                    type="secondary",
-                )
-            with badge_col:
-                st.markdown(
-                    f'<div style="text-align:right;padding-top:8px;">'
-                    f'<span style="font-family:Inter,sans-serif;font-size:9px;font-weight:700;letter-spacing:0.12em;'
-                    f'color:{scol};border:1px solid {scol}40;border-radius:999px;padding:3px 9px;white-space:nowrap;">{slbl}</span>'
-                    f'</div>',
-                    unsafe_allow_html=True
-                )
-
-        # Action buttons — shown when expanded
-        if is_expanded:
-            st.markdown(f'<div style="border-top:1px solid {C["paperEdge"]};margin:6px 0;"></div>', unsafe_allow_html=True)
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                edit_sub = st.form_submit_button("Edit", use_container_width=True)
-            with c2:
-                qr_sub = st.form_submit_button("QR Code", use_container_width=True)
-            with c3:
-                pub_sub = st.form_submit_button("Unpublish" if is_pub else "Publish", use_container_width=True, type="primary")
-
-    # Handle submissions outside the form
-    if edit_sub:
-        st.query_params.update({"page": "edit", "id": pid}); st.rerun()
-    elif qr_sub:
-        st.query_params.update({"page": "qr", "id": pid}); st.rerun()
-    elif pub_sub:
-        all_p = load_products()
-        for prod in all_p:
-            if prod["id"] == pid:
-                prod["status"] = "draft" if is_pub else "published"
-        save_products(all_p); st.rerun()
-    elif toggle_sub:
-        st.session_state[exp_key] = not is_expanded; st.rerun()
+    # Action buttons — shown when expanded
+    if is_expanded:
+        st.markdown(f'<div style="border-top:1px solid {C["paperEdge"]};margin:6px 0;"></div>', unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            if st.button("Edit", key=f"edit_{pid}", use_container_width=True):
+                st.query_params.update({"page": "edit", "id": pid}); st.rerun()
+        with c2:
+            if st.button("QR Code", key=f"qr_{pid}", use_container_width=True):
+                st.query_params.update({"page": "qr", "id": pid}); st.rerun()
+        with c3:
+            if st.button("Unpublish" if is_pub else "Publish", key=f"pub_{pid}", use_container_width=True, type="primary"):
+                cur = get_product(pid)
+                if cur:
+                    cur["status"] = "draft" if is_pub else "published"
+                    upsert_product(cur)
+                st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
