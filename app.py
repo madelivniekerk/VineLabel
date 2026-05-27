@@ -1552,7 +1552,7 @@ def show_product_form(existing=None):
 
 
     # ── 1 · Product Identity ──────────────────────────────────────────────
-    with st.expander("1 · Product Identity", expanded=True):
+    with st.expander("1 · Product Identity", expanded=False):
         c1, c2 = st.columns([3, 1])
         with c1: name = st.text_input("Wine name *", value=p.get("name", ""), placeholder="e.g. Barossa Valley Shiraz")
         with c2: vintage = st.text_input("Vintage", value=str(p.get("vintage", "")), placeholder="2022")
@@ -1598,7 +1598,7 @@ def show_product_form(existing=None):
             collection = st.text_input("Range / Collection", value=curr_collection, placeholder="e.g. Reserve Range · Single Vineyard · Classic Series", help="Groups products together on the dashboard.")
 
     # ── 2 · Label Basics ──────────────────────────────────────────────────
-    with st.expander("2 · Label Basics", expanded=True):
+    with st.expander("2 · Label Basics", expanded=False):
         c7, c8, c9 = st.columns(3)
         with c7: abv = st.number_input("ABV %", min_value=0.0, max_value=100.0, value=float(p.get("abv", 13.5)), step=0.1, format="%.1f")
         with c8: net_quantity = st.text_input("Net quantity", value=p.get("net_quantity", "750 mL"))
@@ -1619,7 +1619,7 @@ def show_product_form(existing=None):
         best_before_date = st.date_input("Best before date", value=_bbd_val, min_value=date(2020, 1, 1), max_value=date(2040, 12, 31), format="DD/MM/YYYY", help="Mandatory for de-alcoholised wines. Leave blank for standard wines.")
 
     # ── 3 · Ingredients & Allergens ───────────────────────────────────────
-    with st.expander("3 · Ingredients & Allergens", expanded=True):
+    with st.expander("3 · Ingredients & Allergens", expanded=False):
         existing_ings = p.get("ingredients", ["Grapes", "Sulfur dioxide (E220)", "Yeast"])
         selected_common = st.multiselect("Common wine ingredients", COMMON_INGREDIENTS, default=[i for i in existing_ings if i in COMMON_INGREDIENTS])
         custom_ings = st.text_area("Additional ingredients (one per line)", value="\n".join(i for i in existing_ings if i not in COMMON_INGREDIENTS), placeholder="Potassium sorbate (E202)\nAscorbic acid (E300)", height=60)
@@ -1704,7 +1704,7 @@ def show_product_form(existing=None):
         custom_certs   = st.text_input("Other certifications (comma-separated)", value=", ".join(c for c in p.get("certifications", []) if c not in COMMON_CERTS))
 
     # ── 9 · Compliance & Warnings ─────────────────────────────────────────
-    with st.expander("9 · Compliance & Warnings", expanded=True):
+    with st.expander("9 · Compliance & Warnings", expanded=False):
         st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin-bottom:4px;">Physical Bottle Label</div>', unsafe_allow_html=True)
         st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">EU Reg. 2021/2117 requires certain fields on the physical label — not just the e-label. Tick what appears on your printed label.</div>', unsafe_allow_html=True)
         _saved_physical = p.get("physical_label_fields", [])
