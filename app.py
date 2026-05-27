@@ -1735,41 +1735,38 @@ def show_product_form(existing=None):
     _cert_file = None
     _img_file = None
 
-    st.markdown(f'<div style="border-top:2px solid {C["ink08"]};margin:20px 0 16px;"></div>', unsafe_allow_html=True)
-    st.markdown(f'<div style="font-family:Inter,sans-serif;font-size:15px;font-weight:700;color:{C["ink"]};margin-bottom:14px;letter-spacing:-0.01em;">11 · Product Image &amp; Certificates</div>', unsafe_allow_html=True)
+    with st.expander("11 · Product Image & Certificates", expanded=False):
+        st.markdown(mlabel("Product Image"), unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload a bottle or label photo — displayed on the consumer e-label page.</div>', unsafe_allow_html=True)
+        _cur_img = p.get("product_image")
+        if _cur_img:
+            _thumb_ext = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
+            _thumb_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_thumb_ext, "image/jpeg")
+            img_col, btn_col = st.columns([3, 1])
+            with img_col:
+                st.markdown(f'<img src="data:{_thumb_mime};base64,{_cur_img}" style="width:100%;max-width:280px;border-radius:12px;border:1px solid {C["ink08"]};" />', unsafe_allow_html=True)
+            with btn_col:
+                _rm_img = st.button("Remove image", key="rm_img_btn", type="secondary")
+        _img_file = st.file_uploader("Upload product image", type=["png", "jpg", "jpeg", "webp"], label_visibility="collapsed", key="img_upload")
 
-    st.markdown(mlabel("Product Image"), unsafe_allow_html=True)
-    st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload a bottle or label photo — displayed on the consumer e-label page.</div>', unsafe_allow_html=True)
-    _cur_img = p.get("product_image")
-    if _cur_img:
-        _thumb_ext = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
-        _thumb_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_thumb_ext, "image/jpeg")
-        img_col, btn_col = st.columns([3, 1])
-        with img_col:
-            st.markdown(f'<img src="data:{_thumb_mime};base64,{_cur_img}" style="width:100%;max-width:280px;border-radius:12px;border:1px solid {C["ink08"]};" />', unsafe_allow_html=True)
-        with btn_col:
-            _rm_img = st.button("Remove image", key="rm_img_btn", type="secondary")
-    _img_file = st.file_uploader("Upload product image", type=["png", "jpg", "jpeg", "webp"], label_visibility="collapsed", key="img_upload")
+        st.markdown(f'<div style="height:12px;"></div>', unsafe_allow_html=True)
+        st.markdown(mlabel("Certificate Documents"), unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload PDFs — organic certificates, lab reports, export documents. Downloadable on the public label.</div>', unsafe_allow_html=True)
+        for _ci, _cert in enumerate(p.get("certificates", [])):
+            _cid = _cert.get("id") or str(_ci)
+            cc1, cc2 = st.columns([4, 1])
+            with cc1:
+                st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{_cert.get("name","")}</strong>' + (f' — {_cert["issuer"]}' if _cert.get("issuer") else "") + (f' · expires {_cert["expiry"]}' if _cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
+            with cc2:
+                _rm_cert[_cid] = st.button("Remove", key=f"rm_{_cid}", type="secondary")
+        cf1, cf2, cf3 = st.columns(3)
+        with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
+        with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
+        with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
+        _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed", key="cert_upload")
+        if p.get("id"):
+            _attach_cert = st.button("Attach Certificate", key="attach_cert_btn", type="primary")
 
-    st.markdown(f'<div style="height:12px;"></div>', unsafe_allow_html=True)
-    st.markdown(mlabel("Certificate Documents"), unsafe_allow_html=True)
-    st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload PDFs — organic certificates, lab reports, export documents. Downloadable on the public label.</div>', unsafe_allow_html=True)
-    for _ci, _cert in enumerate(p.get("certificates", [])):
-        _cid = _cert.get("id") or str(_ci)
-        cc1, cc2 = st.columns([4, 1])
-        with cc1:
-            st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{_cert.get("name","")}</strong>' + (f' — {_cert["issuer"]}' if _cert.get("issuer") else "") + (f' · expires {_cert["expiry"]}' if _cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
-        with cc2:
-            _rm_cert[_cid] = st.button("Remove", key=f"rm_{_cid}", type="secondary")
-    cf1, cf2, cf3 = st.columns(3)
-    with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
-    with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
-    with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
-    _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed", key="cert_upload")
-    if p.get("id"):
-        _attach_cert = st.button("Attach Certificate", key="attach_cert_btn", type="primary")
-
-    st.markdown(f'<div style="border-bottom:2px solid {C["ink08"]};margin:16px 0 4px;"></div>', unsafe_allow_html=True)
     st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
     submitted = st.button("Save Product", type="primary", use_container_width=True)
 
