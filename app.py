@@ -141,9 +141,11 @@ def upsert_product(product):
     for i, p in enumerate(products):
         if p["id"] == product["id"]:
             products[i] = product
+            load_products.clear()
             _local_save_products(products)
             _sync_static_products(products)
             return
+    load_products.clear()
     products.append(product)
     _local_save_products(products)
     _sync_static_products(products)
@@ -991,7 +993,9 @@ def show_public_label(pid, is_preview=False):
 
     # Product image
     if p.get("product_image"):
-        st.markdown(f'<div style="text-align:center;margin-bottom:16px;"><img src="data:image/jpeg;base64,{p["product_image"]}" style="max-width:100%;max-height:320px;border-radius:14px;box-shadow:0 4px 18px rgba(26,26,46,0.12);" /></div>', unsafe_allow_html=True)
+        _img_ext = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
+        _img_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_img_ext, "image/jpeg")
+        st.markdown(f'<div style="text-align:center;margin-bottom:16px;"><img src="data:{_img_mime};base64,{p["product_image"]}" style="max-width:100%;max-height:320px;border-radius:14px;box-shadow:0 4px 18px rgba(26,26,46,0.12);" /></div>', unsafe_allow_html=True)
 
     # PDO/PGI badge
     if p.get("pdo_pgi"):
@@ -1003,6 +1007,7 @@ def show_public_label(pid, is_preview=False):
         ("ABV", f'{p["abv"]}%' if p.get("abv") else None),
         ("Net qty", p.get("net_quantity") or None),
         ("Lot", p.get("lot_number") or None),
+        ("Sweetness", p.get("sweetness_descriptor") or None),
         ("Dosage", p.get("sparkling_dosage") or None),
         ("Best before", _fmt_date(p.get("best_before_date"))),
         ("RRP", _price_str),
@@ -1123,6 +1128,12 @@ def show_public_label(pid, is_preview=False):
     if p.get("producer_address"):
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:14px;">{p.get("producer_name","")} · {p["producer_address"]}</div>', unsafe_allow_html=True)
 
+    if p.get("pregnancy_warning"):
+        st.markdown(f'<div style="display:flex;align-items:flex-start;gap:12px;background:#fff8f0;border:1px solid {C["gold"]}40;border-radius:12px;padding:14px;margin-bottom:14px;"><div style="font-size:24px;line-height:1;">🤰</div><div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:700;color:{C["ink"]};">Pregnancy warning</div><div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-top:3px;">Drinking during pregnancy, even in small amounts, can harm your baby.</div></div></div>', unsafe_allow_html=True)
+
+    if p.get("responsible_drinking"):
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};text-align:center;padding:10px 14px;margin-bottom:14px;">🍷 Please drink responsibly.</div>', unsafe_allow_html=True)
+
     st.markdown(f'<div style="margin-top:24px;padding:14px;border-top:1px solid {C["ink08"]};text-align:center;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink60"]};text-transform:uppercase;">VineLabel · EU e-label Reg. 2021/2117</div></div></div>', unsafe_allow_html=True)
 
 
@@ -1192,7 +1203,9 @@ def _product_card(p):
     scol = C["green"] if is_pub else C["gold"]
     slbl = (p.get("status") or "draft").upper()
     _price = f' · {p["price_currency"]} {p["price_rrp"]:.2f}' if p.get("price_rrp") and p.get("price_currency") else ""
-    _thumb = (f'<img src="data:image/jpeg;base64,{p["product_image"]}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;" />'
+    _th_ext  = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
+    _th_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_th_ext, "image/jpeg")
+    _thumb = (f'<img src="data:{_th_mime};base64,{p["product_image"]}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;flex-shrink:0;" />'
               if p.get("product_image") else
               f'<div style="width:52px;height:52px;border-radius:8px;background:{C["wine"]}18;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🍷</div>')
 
@@ -1537,243 +1550,309 @@ def show_product_form(existing=None):
             st.query_params.update({"label": existing["id"], "preview": "1"}); st.rerun()
         st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
-    with st.form("product_form", clear_on_submit=False):
 
-        # ── 1 · Product Identity ──────────────────────────────────────────────
-        with st.expander("1 · Product Identity", expanded=True):
-            c1, c2 = st.columns([3, 1])
-            with c1: name = st.text_input("Wine name *", value=p.get("name", ""), placeholder="e.g. Barossa Valley Shiraz")
-            with c2: vintage = st.text_input("Vintage", value=str(p.get("vintage", "")), placeholder="2022")
-            pc1, pc2 = st.columns(2)
-            with pc1:
-                product_category = st.selectbox("Product category *", PRODUCT_CATEGORIES, index=PRODUCT_CATEGORIES.index(p.get("product_category", "Wine")) if p.get("product_category") in PRODUCT_CATEGORIES else 0, help="Required by EU Reg. 2021/2117")
-            with pc2:
-                _trad_saved = p.get("traditional_term", "— None —")
-                _trad_idx = TRADITIONAL_TERMS.index(_trad_saved) if _trad_saved in TRADITIONAL_TERMS else 0
-                traditional_term = st.selectbox("Traditional term", TRADITIONAL_TERMS, index=_trad_idx, help="Regulated terms under EU Reg. 2019/33 — only use if legally entitled")
-            c3, c4 = st.columns(2)
-            with c3: variety = st.text_input("Grape variety", value=p.get("variety", ""), placeholder="Shiraz, Grenache")
-            with c4: region = st.text_input("Region / appellation", value=p.get("region", ""), placeholder="Barossa Valley")
-            pdo_pgi = st.text_input("PDO / PGI designation", value=p.get("pdo_pgi", ""), placeholder="e.g. Barossa Valley GI · Protected Geographical Indication", help="Required if claimed on physical label")
-            c5, c6 = st.columns(2)
-            with c5: producer_name = st.text_input("Winery / producer *", value=p.get("producer_name") or _s.get("producer_name", ""), placeholder="e.g. Penfolds")
-            with c6: country = st.text_input("Country of origin", value=p.get("country") or _s.get("country", "Australia"))
-            producer_address = st.text_input("Producer address", value=p.get("producer_address") or _s.get("producer_address", ""), placeholder="Street, City, State, Postcode")
-            existing_collections = sorted({
-                prod.get("collection","").strip()
-                for prod in load_products()
-                if prod.get("collection","").strip() and prod["id"] != p.get("id","")
-            })
-            curr_collection = (p.get("collection") or "").strip()
-            if existing_collections:
-                UNCATEGORISED = "— Uncategorised —"
-                NEW_OPT       = "+ New collection"
-                options       = [UNCATEGORISED] + existing_collections + [NEW_OPT]
-                if curr_collection in existing_collections:
-                    default_idx = options.index(curr_collection)
-                elif curr_collection:
-                    default_idx = len(options) - 1
-                else:
-                    default_idx = 0
-                coll_select = st.selectbox("Range / Collection", options, index=default_idx)
-                if coll_select == NEW_OPT:
-                    collection = st.text_input("New collection name", value=curr_collection if curr_collection not in existing_collections else "", placeholder="e.g. Reserve Range")
-                elif coll_select == UNCATEGORISED:
-                    collection = ""
-                else:
-                    collection = coll_select
+    # ── 1 · Product Identity ──────────────────────────────────────────────
+    with st.expander("1 · Product Identity", expanded=True):
+        c1, c2 = st.columns([3, 1])
+        with c1: name = st.text_input("Wine name *", value=p.get("name", ""), placeholder="e.g. Barossa Valley Shiraz")
+        with c2: vintage = st.text_input("Vintage", value=str(p.get("vintage", "")), placeholder="2022")
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            product_category = st.selectbox("Product category *", PRODUCT_CATEGORIES, index=PRODUCT_CATEGORIES.index(p.get("product_category", "Wine")) if p.get("product_category") in PRODUCT_CATEGORIES else 0, help="Required by EU Reg. 2021/2117")
+        with pc2:
+            _trad_saved = p.get("traditional_term", "— None —")
+            _trad_idx = TRADITIONAL_TERMS.index(_trad_saved) if _trad_saved in TRADITIONAL_TERMS else 0
+            traditional_term = st.selectbox("Traditional term", TRADITIONAL_TERMS, index=_trad_idx, help="Regulated terms under EU Reg. 2019/33 — only use if legally entitled")
+        c3, c4 = st.columns(2)
+        with c3: variety = st.text_input("Grape variety", value=p.get("variety", ""), placeholder="Shiraz, Grenache")
+        with c4: region = st.text_input("Region / appellation", value=p.get("region", ""), placeholder="Barossa Valley")
+        pdo_pgi = st.text_input("PDO / PGI designation", value=p.get("pdo_pgi", ""), placeholder="e.g. Barossa Valley GI · Protected Geographical Indication", help="Required if claimed on physical label")
+        c5, c6 = st.columns(2)
+        with c5: producer_name = st.text_input("Winery / producer *", value=p.get("producer_name") or _s.get("producer_name", ""), placeholder="e.g. Penfolds")
+        with c6: country = st.text_input("Country of origin", value=p.get("country") or _s.get("country", "Australia"))
+        producer_address = st.text_input("Producer address", value=p.get("producer_address") or _s.get("producer_address", ""), placeholder="Street, City, State, Postcode")
+        existing_collections = sorted({
+            prod.get("collection","").strip()
+            for prod in load_products()
+            if prod.get("collection","").strip() and prod["id"] != p.get("id","")
+        })
+        curr_collection = (p.get("collection") or "").strip()
+        if existing_collections:
+            UNCATEGORISED = "— Uncategorised —"
+            NEW_OPT       = "+ New collection"
+            options       = [UNCATEGORISED] + existing_collections + [NEW_OPT]
+            if curr_collection in existing_collections:
+                default_idx = options.index(curr_collection)
+            elif curr_collection:
+                default_idx = len(options) - 1
             else:
-                collection = st.text_input("Range / Collection", value=curr_collection, placeholder="e.g. Reserve Range · Single Vineyard · Classic Series", help="Groups products together on the dashboard.")
-
-        # ── 2 · Label Basics ──────────────────────────────────────────────────
-        with st.expander("2 · Label Basics", expanded=True):
-            c7, c8, c9 = st.columns(3)
-            with c7: abv = st.number_input("ABV %", min_value=0.0, max_value=100.0, value=float(p.get("abv", 13.5)), step=0.1, format="%.1f")
-            with c8: net_quantity = st.text_input("Net quantity", value=p.get("net_quantity", "750 mL"))
-            with c9: lot_number = st.text_input("Lot number", value=p.get("lot_number", ""), placeholder="L2022-001", help="Must be preceded by 'L' under EU Directive 89/396/EEC")
-            lb1, lb2 = st.columns(2)
-            with lb1:
-                _sw_saved = p.get("sweetness_descriptor", "— Not specified —")
-                _sw_idx = SWEETNESS_DESCRIPTORS.index(_sw_saved) if _sw_saved in SWEETNESS_DESCRIPTORS else 0
-                sweetness_descriptor = st.selectbox("Sweetness descriptor (still wines)", SWEETNESS_DESCRIPTORS, index=_sw_idx, help="Dry / Medium-dry / Medium-sweet / Sweet — EU Reg. 2019/33")
-            with lb2:
-                _dosage_opts = ["— Not applicable —"] + SPARKLING_DOSAGE
-                sparkling_dosage = st.selectbox("Sparkling wine dosage", _dosage_opts, index=_dosage_opts.index(p.get("sparkling_dosage", "— Not applicable —")) if p.get("sparkling_dosage") in _dosage_opts else 0, help="Mandatory for sparkling wines — EU Reg. 2021/2117")
-            _bbd_raw = p.get("best_before_date")
-            _bbd_val = None
-            if _bbd_raw:
-                try: _bbd_val = date.fromisoformat(_bbd_raw)
-                except (ValueError, TypeError): pass
-            best_before_date = st.date_input("Best before date", value=_bbd_val, min_value=date(2020, 1, 1), max_value=date(2040, 12, 31), format="DD/MM/YYYY", help="Mandatory for de-alcoholised wines. Leave blank for standard wines.")
-
-        # ── 3 · Ingredients & Allergens ───────────────────────────────────────
-        with st.expander("3 · Ingredients & Allergens", expanded=True):
-            existing_ings = p.get("ingredients", ["Grapes", "Sulfur dioxide (E220)", "Yeast"])
-            selected_common = st.multiselect("Common wine ingredients", COMMON_INGREDIENTS, default=[i for i in existing_ings if i in COMMON_INGREDIENTS])
-            custom_ings = st.text_area("Additional ingredients (one per line)", value="\n".join(i for i in existing_ings if i not in COMMON_INGREDIENTS), placeholder="Potassium sorbate (E202)\nAscorbic acid (E300)", height=60)
-            st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:10px 0 4px;">Fining Agents</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:6px;">Egg, milk and fish fining agents must be declared as allergens under EU Reg. 1169/2011.</div>', unsafe_allow_html=True)
-            existing_fining = p.get("fining_agents", [])
-            selected_fining = st.multiselect("Fining agents used", FINING_AGENTS, default=[f for f in existing_fining if f in FINING_AGENTS])
-            st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:10px 0 4px;">Allergen Declarations</div>', unsafe_allow_html=True)
-            existing_allergens = p.get("allergens", ["Sulphites"])
-            selected_allergens = st.multiselect("Declared allergens", COMMON_ALLERGENS, default=[a for a in existing_allergens if a in COMMON_ALLERGENS])
-            so2_col1, so2_col2 = st.columns([1, 2])
-            with so2_col1:
-                so2_level = st.number_input("SO₂ level (mg/L)", min_value=0, max_value=400, value=int(p.get("so2_level") or 0), step=1, help="Must declare 'Contains sulphites' if >10 mg/L — EU Reg. 1169/2011")
-            with so2_col2:
-                if so2_level > 10:
-                    st.markdown(f'<div style="margin-top:28px;font-size:12px;color:{C["wine"]};font-weight:600;">⚠ Must declare sulphites on label (>10 mg/L)</div>', unsafe_allow_html=True)
-                elif so2_level > 0:
-                    st.markdown(f'<div style="margin-top:28px;font-size:12px;color:{C["green"]};">✓ Below declaration threshold</div>', unsafe_allow_html=True)
-
-        # ── 4 · Nutrition (per 100 mL) ────────────────────────────────────────
-        with st.expander("4 · Nutrition (per 100 mL)", expanded=False):
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Dry wine ≈ 70 kcal / 293 kJ per 100 mL.</div>', unsafe_allow_html=True)
-            auto_calc_energy = st.checkbox("Auto-calculate energy from ABV & carbohydrates (EU formula)", value=p.get("auto_calc_energy", False), help="Energy (kJ) = (ABV% × 0.789 × 29) + (carbs × 17) + (protein × 17) + (fat × 37)")
-            nu = p.get("nutrition", {})
-            n1, n2 = st.columns(2)
-            with n1:
-                energy_kj   = st.number_input("Energy (kJ)",     value=float(nu.get("energy_kj", 293)), step=1.0)
-                fat_g       = st.number_input("Fat (g)",          value=float(nu.get("fat_g", 0.0)), step=0.1, format="%.1f")
-                carb_g      = st.number_input("Carbohydrate (g)", value=float(nu.get("carbohydrate_g", 2.6)), step=0.1, format="%.1f")
-                protein_g   = st.number_input("Protein (g)",      value=float(nu.get("protein_g", 0.1)), step=0.1, format="%.1f")
-            with n2:
-                energy_kcal = st.number_input("Energy (kcal)",    value=float(nu.get("energy_kcal", 70)), step=1.0)
-                sat_fat_g   = st.number_input("Sat. fat (g)",     value=float(nu.get("saturated_fat_g", 0.0)), step=0.1, format="%.1f")
-                sugars_g    = st.number_input("Sugars (g)",       value=float(nu.get("sugars_g", 1.8)), step=0.1, format="%.1f")
-                salt_g      = st.number_input("Salt (g)",         value=float(nu.get("salt_g", 0.02)), step=0.01, format="%.2f")
-
-        # ── 5 · Packaging & Recycling ─────────────────────────────────────────
-        with st.expander("5 · Packaging & Recycling", expanded=False):
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Required for DPP packaging compliance (PPWR 2025).</div>', unsafe_allow_html=True)
-            pkg = p.get("packaging", {})
-            _bot_def = pkg.get("bottle_material")  or _dp.get("bottle_material",  "Glass")
-            _clo_def = pkg.get("closure_type")     or _dp.get("closure_type",     "Natural cork")
-            _lbl_def = pkg.get("label_material")   or _dp.get("label_material",   "Paper")
-            _cap_def = pkg.get("capsule_material") or _dp.get("capsule_material", "Tin")
-            pa1, pa2 = st.columns(2)
-            with pa1:
-                bottle_material = st.selectbox("Bottle material", BOTTLE_MATERIALS, index=BOTTLE_MATERIALS.index(_bot_def) if _bot_def in BOTTLE_MATERIALS else 0)
-                label_material  = st.selectbox("Label material",  LABEL_MATERIALS,  index=LABEL_MATERIALS.index(_lbl_def)  if _lbl_def  in LABEL_MATERIALS  else 0)
-            with pa2:
-                closure_type     = st.selectbox("Closure type",     CLOSURE_TYPES,     index=CLOSURE_TYPES.index(_clo_def)     if _clo_def     in CLOSURE_TYPES     else 0)
-                capsule_material = st.selectbox("Capsule material", CAPSULE_MATERIALS, index=CAPSULE_MATERIALS.index(_cap_def) if _cap_def in CAPSULE_MATERIALS else 0)
-            recycled_pct = st.number_input("Recycled glass content %", min_value=0, max_value=100, value=int(pkg.get("recycled_content_pct") or 0), step=1)
-            recycling_instructions = st.text_area("Recycling instructions", value=pkg.get("recycling_instructions", ""), placeholder="Rinse bottle before recycling at glass bank. Remove cork and recycle separately.", height=60)
-
-        # ── 6 · Supply Chain & Provenance ─────────────────────────────────────
-        with st.expander("6 · Supply Chain & Provenance", expanded=False):
-            sc = p.get("supply_chain", {})
-            sc1, sc2 = st.columns(2)
-            with sc1:
-                vineyard_name       = st.text_input("Vineyard name",           value=sc.get("vineyard_name", ""),           placeholder="e.g. Block 42 Estate")
-                vineyard_region     = st.text_input("Vineyard region",          value=sc.get("vineyard_region", ""),         placeholder="e.g. Barossa Valley, SA")
-                vineyard_country    = st.text_input("Vineyard country",         value=sc.get("vineyard_country", "Australia"))
-                grape_origin_country = st.text_input("Country of grape origin", value=sc.get("grape_origin_country", ""),   placeholder="If different from vineyard country", help="State separately if grapes sourced from multiple EU countries")
-            with sc2:
-                bottling_facility   = st.text_input("Bottled by (name)",        value=sc.get("bottling_facility", ""),       placeholder="e.g. Penfolds Magill Estate")
-                bottling_location   = st.text_input("Bottling address",         value=sc.get("bottling_location", ""),       placeholder="e.g. Nuriootpa SA 5355, Australia", help="Required if different from producer address")
-                importer_name       = st.text_input("EU importer name",         value=sc.get("importer_name") or _s.get("eu_importer_name", ""),    placeholder="Required for EU sales")
-                importer_address    = st.text_input("EU importer address",      value=sc.get("importer_address") or _s.get("eu_importer_address", ""), placeholder="Street, City, Country")
-
-        # ── 7 · Carbon & Sustainability ───────────────────────────────────────
-        with st.expander("7 · Carbon & Sustainability", expanded=False):
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Optional now — required under ESPR 2026. Leave at 0 if not yet measured.</div>', unsafe_allow_html=True)
-            sus = p.get("sustainability", {})
-            s1, s2 = st.columns(2)
-            with s1: carbon_footprint = st.number_input("Carbon footprint (kg CO₂e / bottle)", min_value=0.0, value=float(sus.get("carbon_footprint_kg") or 0.0), step=0.01, format="%.2f")
-            with s2: water_usage = st.number_input("Water usage (L / bottle)", min_value=0.0, value=float(sus.get("water_usage_l") or 0.0), step=0.1, format="%.1f")
-            renewable_energy = st.checkbox("Produced using renewable energy", value=sus.get("renewable_energy", False))
-
-        # ── 8 · Certifications ────────────────────────────────────────────────
-        with st.expander("8 · Certifications", expanded=False):
-            selected_certs = st.multiselect("Certification badges", COMMON_CERTS, default=[c for c in COMMON_CERTS if c in p.get("certifications", [])])
-            custom_certs   = st.text_input("Other certifications (comma-separated)", value=", ".join(c for c in p.get("certifications", []) if c not in COMMON_CERTS))
-
-        # ── 9 · Compliance & Warnings ─────────────────────────────────────────
-        with st.expander("9 · Compliance & Warnings", expanded=True):
-            st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin-bottom:4px;">Physical Bottle Label</div>', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">EU Reg. 2021/2117 requires certain fields on the physical label — not just the e-label. Tick what appears on your printed label.</div>', unsafe_allow_html=True)
-            _saved_physical = p.get("physical_label_fields", [])
-            physical_label_fields = st.multiselect("Fields present on physical bottle label", PHYSICAL_LABEL_FIELDS, default=[f for f in _saved_physical if f in PHYSICAL_LABEL_FIELDS])
-            st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:12px 0 4px;">Health & Responsible Drinking</div>', unsafe_allow_html=True)
-            w1, w2 = st.columns(2)
-            with w1: pregnancy_warning    = st.checkbox("Include pregnancy warning",         value=p.get("pregnancy_warning", False),    help="Recommended for EU market — becoming mandatory in several member states")
-            with w2: responsible_drinking = st.checkbox("Include responsible drinking statement", value=p.get("responsible_drinking", False), help="'Drink responsibly' — voluntary but strongly recommended")
-
-        # ── 10 · Optional ─────────────────────────────────────────────────────
-        with st.expander("10 · Optional", expanded=False):
-            storage_info = st.text_input("Storage information", value=p.get("storage_info", ""), placeholder="Store in a cool, dark place. Serve at 16–18°C.")
-            website      = st.text_input("Producer website", value=p.get("website", ""), placeholder="https://www.winery.com.au")
-            _LABEL_LANG_OPTIONS = {"English": "en", "Deutsch (DE)": "de", "Français (FR)": "fr", "Italiano (IT)": "it", "Español (ES)": "es"}
-            _saved_lang = p.get("label_language", "en")
-            _lang_idx = list(_LABEL_LANG_OPTIONS.values()).index(_saved_lang) if _saved_lang in _LABEL_LANG_OPTIONS.values() else 0
-            label_language = st.selectbox("Default label language", list(_LABEL_LANG_OPTIONS.keys()), index=_lang_idx, help="Pre-selects the language on the consumer label based on the product's primary market.")
-            _currencies = ["AUD", "EUR", "USD", "GBP", "NZD", "CAD"]
-            op1, op2 = st.columns([1, 3])
-            with op1: price_currency = st.selectbox("Currency", _currencies, index=_currencies.index(p.get("price_currency", "AUD")) if p.get("price_currency") in _currencies else 0)
-            with op2: price_rrp = st.number_input("RRP (recommended retail price)", min_value=0.0, value=float(p.get("price_rrp") or 0.0), step=0.50, format="%.2f")
-
-        st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
-        submitted = st.form_submit_button("Save Product", type="primary", use_container_width=True)
-
-        if submitted:
-            _errs = []
-            if not name.strip(): _errs.append("Wine name")
-            if not producer_name.strip(): _errs.append("Winery / producer")
-            if _errs:
-                st.session_state["_form_errors"] = _errs
-                st.rerun()
+                default_idx = 0
+            coll_select = st.selectbox("Range / Collection", options, index=default_idx)
+            if coll_select == NEW_OPT:
+                collection = st.text_input("New collection name", value=curr_collection if curr_collection not in existing_collections else "", placeholder="e.g. Reserve Range")
+            elif coll_select == UNCATEGORISED:
+                collection = ""
             else:
-                custom_list = [l.strip() for l in custom_ings.splitlines() if l.strip()]
-                all_ings    = selected_common + [i for i in custom_list if i not in selected_common]
-                all_certs   = selected_certs + [c.strip() for c in custom_certs.split(",") if c.strip() and c.strip() not in selected_certs]
-                if auto_calc_energy:
-                    calc_kj   = round((abv * 0.789 * 29) + (carb_g * 17) + (protein_g * 17) + (fat_g * 37))
-                    calc_kcal = round(calc_kj / 4.184)
-                    energy_kj, energy_kcal = float(calc_kj), float(calc_kcal)
-                product = {
-                    "id": p.get("id", str(uuid.uuid4())[:8]),
-                    "name": (name or "").strip(), "vintage": (vintage or "").strip(), "variety": (variety or "").strip(),
-                    "product_category": product_category, "pdo_pgi": (pdo_pgi or "").strip(),
-                    "traditional_term": traditional_term if traditional_term != "— None —" else None,
-                    "region": (region or "").strip(), "producer_name": (producer_name or "").strip(),
-                    "collection": (collection or "").strip(),
-                    "country": (country or "").strip(), "producer_address": (producer_address or "").strip(),
-                    "abv": round(abv, 1), "net_quantity": (net_quantity or "").strip(), "lot_number": (lot_number or "").strip(),
-                    "sweetness_descriptor": sweetness_descriptor if sweetness_descriptor != "— Not specified —" else None,
-                    "sparkling_dosage": sparkling_dosage if sparkling_dosage != "— Not applicable —" else None,
-                    "best_before_date": best_before_date.isoformat() if best_before_date else None,
-                    "auto_calc_energy": auto_calc_energy,
-                    "ingredients": all_ings, "fining_agents": selected_fining, "allergens": selected_allergens,
-                    "so2_level": so2_level or None,
-                    "nutrition": {"energy_kj": energy_kj, "energy_kcal": energy_kcal, "fat_g": fat_g, "saturated_fat_g": sat_fat_g, "carbohydrate_g": carb_g, "sugars_g": sugars_g, "protein_g": protein_g, "salt_g": salt_g},
-                    "packaging": {"bottle_material": bottle_material, "closure_type": closure_type, "label_material": label_material, "capsule_material": capsule_material, "recycled_content_pct": recycled_pct or None, "recycling_instructions": (recycling_instructions or "").strip() or None},
-                    "sustainability": {"carbon_footprint_kg": carbon_footprint or None, "water_usage_l": water_usage or None, "renewable_energy": renewable_energy},
-                    "supply_chain": {"vineyard_name": (vineyard_name or "").strip() or None, "vineyard_region": (vineyard_region or "").strip() or None, "vineyard_country": (vineyard_country or "").strip() or None, "grape_origin_country": (grape_origin_country or "").strip() or None, "bottling_facility": (bottling_facility or "").strip() or None, "bottling_location": (bottling_location or "").strip() or None, "importer_name": (importer_name or "").strip() or None, "importer_address": (importer_address or "").strip() or None},
-                    "certifications": all_certs, "certificates": p.get("certificates", []),
-                    "physical_label_fields": physical_label_fields,
-                    "pregnancy_warning": pregnancy_warning, "responsible_drinking": responsible_drinking,
-                    "storage_info": (storage_info or "").strip(), "website": (website or "").strip(),
-                    "price_rrp": price_rrp or None, "price_currency": price_currency,
-                    "label_language": _LABEL_LANG_OPTIONS[label_language],
-                    "status": p.get("status", "draft"),
-                    "created_at": p.get("created_at", datetime.now().isoformat()),
-                    "updated_at": datetime.now().isoformat(),
-                }
-                upsert_product(product)
-                if ANTHROPIC_AVAILABLE and _get_api_key() and all_ings:
-                    with st.spinner("🤖 Checking allergens..."):
-                        detected = ai_detect_allergens(all_ings)
-                    missing = [a for a in detected if a not in (selected_allergens or [])]
-                    if missing:
-                        st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
-                st.session_state["_saved"] = True
-                st.query_params.update({"page": "edit", "id": product["id"]})
-                st.rerun()
+                collection = coll_select
+        else:
+            collection = st.text_input("Range / Collection", value=curr_collection, placeholder="e.g. Reserve Range · Single Vineyard · Classic Series", help="Groups products together on the dashboard.")
 
-    # ── Post-save + section 11 (after form so Save is at bottom of sections 1–10)
+    # ── 2 · Label Basics ──────────────────────────────────────────────────
+    with st.expander("2 · Label Basics", expanded=True):
+        c7, c8, c9 = st.columns(3)
+        with c7: abv = st.number_input("ABV %", min_value=0.0, max_value=100.0, value=float(p.get("abv", 13.5)), step=0.1, format="%.1f")
+        with c8: net_quantity = st.text_input("Net quantity", value=p.get("net_quantity", "750 mL"))
+        with c9: lot_number = st.text_input("Lot number", value=p.get("lot_number", ""), placeholder="L2022-001", help="Must be preceded by 'L' under EU Directive 89/396/EEC")
+        lb1, lb2 = st.columns(2)
+        with lb1:
+            _sw_saved = p.get("sweetness_descriptor", "— Not specified —")
+            _sw_idx = SWEETNESS_DESCRIPTORS.index(_sw_saved) if _sw_saved in SWEETNESS_DESCRIPTORS else 0
+            sweetness_descriptor = st.selectbox("Sweetness descriptor (still wines)", SWEETNESS_DESCRIPTORS, index=_sw_idx, help="Dry / Medium-dry / Medium-sweet / Sweet — EU Reg. 2019/33")
+        with lb2:
+            _dosage_opts = ["— Not applicable —"] + SPARKLING_DOSAGE
+            sparkling_dosage = st.selectbox("Sparkling wine dosage", _dosage_opts, index=_dosage_opts.index(p.get("sparkling_dosage", "— Not applicable —")) if p.get("sparkling_dosage") in _dosage_opts else 0, help="Mandatory for sparkling wines — EU Reg. 2021/2117")
+        _bbd_raw = p.get("best_before_date")
+        _bbd_val = None
+        if _bbd_raw:
+            try: _bbd_val = date.fromisoformat(_bbd_raw)
+            except (ValueError, TypeError): pass
+        best_before_date = st.date_input("Best before date", value=_bbd_val, min_value=date(2020, 1, 1), max_value=date(2040, 12, 31), format="DD/MM/YYYY", help="Mandatory for de-alcoholised wines. Leave blank for standard wines.")
+
+    # ── 3 · Ingredients & Allergens ───────────────────────────────────────
+    with st.expander("3 · Ingredients & Allergens", expanded=True):
+        existing_ings = p.get("ingredients", ["Grapes", "Sulfur dioxide (E220)", "Yeast"])
+        selected_common = st.multiselect("Common wine ingredients", COMMON_INGREDIENTS, default=[i for i in existing_ings if i in COMMON_INGREDIENTS])
+        custom_ings = st.text_area("Additional ingredients (one per line)", value="\n".join(i for i in existing_ings if i not in COMMON_INGREDIENTS), placeholder="Potassium sorbate (E202)\nAscorbic acid (E300)", height=60)
+        st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:10px 0 4px;">Fining Agents</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:6px;">Egg, milk and fish fining agents must be declared as allergens under EU Reg. 1169/2011.</div>', unsafe_allow_html=True)
+        existing_fining = p.get("fining_agents", [])
+        selected_fining = st.multiselect("Fining agents used", FINING_AGENTS, default=[f for f in existing_fining if f in FINING_AGENTS])
+        st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:10px 0 4px;">Allergen Declarations</div>', unsafe_allow_html=True)
+        existing_allergens = p.get("allergens", ["Sulphites"])
+        selected_allergens = st.multiselect("Declared allergens", COMMON_ALLERGENS, default=[a for a in existing_allergens if a in COMMON_ALLERGENS])
+        so2_col1, so2_col2 = st.columns([1, 2])
+        with so2_col1:
+            so2_level = st.number_input("SO₂ level (mg/L)", min_value=0, max_value=400, value=int(p.get("so2_level") or 0), step=1, help="Must declare 'Contains sulphites' if >10 mg/L — EU Reg. 1169/2011")
+        with so2_col2:
+            if so2_level > 10:
+                st.markdown(f'<div style="margin-top:28px;font-size:12px;color:{C["wine"]};font-weight:600;">⚠ Must declare sulphites on label (>10 mg/L)</div>', unsafe_allow_html=True)
+            elif so2_level > 0:
+                st.markdown(f'<div style="margin-top:28px;font-size:12px;color:{C["green"]};">✓ Below declaration threshold</div>', unsafe_allow_html=True)
+
+    # ── 4 · Nutrition (per 100 mL) ────────────────────────────────────────
+    with st.expander("4 · Nutrition (per 100 mL)", expanded=False):
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Dry wine ≈ 70 kcal / 293 kJ per 100 mL.</div>', unsafe_allow_html=True)
+        auto_calc_energy = st.checkbox("Auto-calculate energy from ABV & carbohydrates (EU formula)", value=p.get("auto_calc_energy", False), help="Energy (kJ) = (ABV% × 0.789 × 29) + (carbs × 17) + (protein × 17) + (fat × 37)")
+        nu = p.get("nutrition", {})
+        n1, n2 = st.columns(2)
+        with n1:
+            energy_kj   = st.number_input("Energy (kJ)",     value=float(nu.get("energy_kj", 293)), step=1.0)
+            fat_g       = st.number_input("Fat (g)",          value=float(nu.get("fat_g", 0.0)), step=0.1, format="%.1f")
+            carb_g      = st.number_input("Carbohydrate (g)", value=float(nu.get("carbohydrate_g", 2.6)), step=0.1, format="%.1f")
+            protein_g   = st.number_input("Protein (g)",      value=float(nu.get("protein_g", 0.1)), step=0.1, format="%.1f")
+        with n2:
+            energy_kcal = st.number_input("Energy (kcal)",    value=float(nu.get("energy_kcal", 70)), step=1.0)
+            sat_fat_g   = st.number_input("Sat. fat (g)",     value=float(nu.get("saturated_fat_g", 0.0)), step=0.1, format="%.1f")
+            sugars_g    = st.number_input("Sugars (g)",       value=float(nu.get("sugars_g", 1.8)), step=0.1, format="%.1f")
+            salt_g      = st.number_input("Salt (g)",         value=float(nu.get("salt_g", 0.02)), step=0.01, format="%.2f")
+
+    # ── 5 · Packaging & Recycling ─────────────────────────────────────────
+    with st.expander("5 · Packaging & Recycling", expanded=False):
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Required for DPP packaging compliance (PPWR 2025).</div>', unsafe_allow_html=True)
+        pkg = p.get("packaging", {})
+        _bot_def = pkg.get("bottle_material")  or _dp.get("bottle_material",  "Glass")
+        _clo_def = pkg.get("closure_type")     or _dp.get("closure_type",     "Natural cork")
+        _lbl_def = pkg.get("label_material")   or _dp.get("label_material",   "Paper")
+        _cap_def = pkg.get("capsule_material") or _dp.get("capsule_material", "Tin")
+        pa1, pa2 = st.columns(2)
+        with pa1:
+            bottle_material = st.selectbox("Bottle material", BOTTLE_MATERIALS, index=BOTTLE_MATERIALS.index(_bot_def) if _bot_def in BOTTLE_MATERIALS else 0)
+            label_material  = st.selectbox("Label material",  LABEL_MATERIALS,  index=LABEL_MATERIALS.index(_lbl_def)  if _lbl_def  in LABEL_MATERIALS  else 0)
+        with pa2:
+            closure_type     = st.selectbox("Closure type",     CLOSURE_TYPES,     index=CLOSURE_TYPES.index(_clo_def)     if _clo_def     in CLOSURE_TYPES     else 0)
+            capsule_material = st.selectbox("Capsule material", CAPSULE_MATERIALS, index=CAPSULE_MATERIALS.index(_cap_def) if _cap_def in CAPSULE_MATERIALS else 0)
+        recycled_pct = st.number_input("Recycled glass content %", min_value=0, max_value=100, value=int(pkg.get("recycled_content_pct") or 0), step=1)
+        recycling_instructions = st.text_area("Recycling instructions", value=pkg.get("recycling_instructions", ""), placeholder="Rinse bottle before recycling at glass bank. Remove cork and recycle separately.", height=60)
+
+    # ── 6 · Supply Chain & Provenance ─────────────────────────────────────
+    with st.expander("6 · Supply Chain & Provenance", expanded=False):
+        sc = p.get("supply_chain", {})
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            vineyard_name       = st.text_input("Vineyard name",           value=sc.get("vineyard_name", ""),           placeholder="e.g. Block 42 Estate")
+            vineyard_region     = st.text_input("Vineyard region",          value=sc.get("vineyard_region", ""),         placeholder="e.g. Barossa Valley, SA")
+            vineyard_country    = st.text_input("Vineyard country",         value=sc.get("vineyard_country", "Australia"))
+            grape_origin_country = st.text_input("Country of grape origin", value=sc.get("grape_origin_country", ""),   placeholder="If different from vineyard country", help="State separately if grapes sourced from multiple EU countries")
+        with sc2:
+            bottling_facility   = st.text_input("Bottled by (name)",        value=sc.get("bottling_facility", ""),       placeholder="e.g. Penfolds Magill Estate")
+            bottling_location   = st.text_input("Bottling address",         value=sc.get("bottling_location", ""),       placeholder="e.g. Nuriootpa SA 5355, Australia", help="Required if different from producer address")
+            importer_name       = st.text_input("EU importer name",         value=sc.get("importer_name") or _s.get("eu_importer_name", ""),    placeholder="Required for EU sales")
+            importer_address    = st.text_input("EU importer address",      value=sc.get("importer_address") or _s.get("eu_importer_address", ""), placeholder="Street, City, Country")
+
+    # ── 7 · Carbon & Sustainability ───────────────────────────────────────
+    with st.expander("7 · Carbon & Sustainability", expanded=False):
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Optional now — required under ESPR 2026. Leave at 0 if not yet measured.</div>', unsafe_allow_html=True)
+        sus = p.get("sustainability", {})
+        s1, s2 = st.columns(2)
+        with s1: carbon_footprint = st.number_input("Carbon footprint (kg CO₂e / bottle)", min_value=0.0, value=float(sus.get("carbon_footprint_kg") or 0.0), step=0.01, format="%.2f")
+        with s2: water_usage = st.number_input("Water usage (L / bottle)", min_value=0.0, value=float(sus.get("water_usage_l") or 0.0), step=0.1, format="%.1f")
+        renewable_energy = st.checkbox("Produced using renewable energy", value=sus.get("renewable_energy", False))
+
+    # ── 8 · Certifications ────────────────────────────────────────────────
+    with st.expander("8 · Certifications", expanded=False):
+        selected_certs = st.multiselect("Certification badges", COMMON_CERTS, default=[c for c in COMMON_CERTS if c in p.get("certifications", [])])
+        custom_certs   = st.text_input("Other certifications (comma-separated)", value=", ".join(c for c in p.get("certifications", []) if c not in COMMON_CERTS))
+
+    # ── 9 · Compliance & Warnings ─────────────────────────────────────────
+    with st.expander("9 · Compliance & Warnings", expanded=True):
+        st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin-bottom:4px;">Physical Bottle Label</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">EU Reg. 2021/2117 requires certain fields on the physical label — not just the e-label. Tick what appears on your printed label.</div>', unsafe_allow_html=True)
+        _saved_physical = p.get("physical_label_fields", [])
+        physical_label_fields = st.multiselect("Fields present on physical bottle label", PHYSICAL_LABEL_FIELDS, default=[f for f in _saved_physical if f in PHYSICAL_LABEL_FIELDS])
+        st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:12px 0 4px;">Health & Responsible Drinking</div>', unsafe_allow_html=True)
+        w1, w2 = st.columns(2)
+        with w1: pregnancy_warning    = st.checkbox("Include pregnancy warning",         value=p.get("pregnancy_warning", False),    help="Recommended for EU market — becoming mandatory in several member states")
+        with w2: responsible_drinking = st.checkbox("Include responsible drinking statement", value=p.get("responsible_drinking", False), help="'Drink responsibly' — voluntary but strongly recommended")
+
+    # ── 10 · Optional ─────────────────────────────────────────────────────
+    with st.expander("10 · Optional", expanded=False):
+        storage_info = st.text_input("Storage information", value=p.get("storage_info", ""), placeholder="Store in a cool, dark place. Serve at 16–18°C.")
+        website      = st.text_input("Producer website", value=p.get("website", ""), placeholder="https://www.winery.com.au")
+        _LABEL_LANG_OPTIONS = {"English": "en", "Deutsch (DE)": "de", "Français (FR)": "fr", "Italiano (IT)": "it", "Español (ES)": "es"}
+        _saved_lang = p.get("label_language", "en")
+        _lang_idx = list(_LABEL_LANG_OPTIONS.values()).index(_saved_lang) if _saved_lang in _LABEL_LANG_OPTIONS.values() else 0
+        label_language = st.selectbox("Default label language", list(_LABEL_LANG_OPTIONS.keys()), index=_lang_idx, help="Pre-selects the language on the consumer label based on the product's primary market.")
+        _currencies = ["AUD", "EUR", "USD", "GBP", "NZD", "CAD"]
+        op1, op2 = st.columns([1, 3])
+        with op1: price_currency = st.selectbox("Currency", _currencies, index=_currencies.index(p.get("price_currency", "AUD")) if p.get("price_currency") in _currencies else 0)
+        with op2: price_rrp = st.number_input("RRP (recommended retail price)", min_value=0.0, value=float(p.get("price_rrp") or 0.0), step=0.50, format="%.2f")
+
+    # ── 11 · Product Image & Certificates ────────────────────────────────────
+    _rm_img = False
+    _rm_cert = {}
+    _attach_cert = False
+    _cert_name = _cert_issuer = _cert_expiry = ""
+    _cert_file = None
+    _img_file = None
+
+    st.markdown(f'<div style="border-top:2px solid {C["ink08"]};margin:20px 0 16px;"></div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:Inter,sans-serif;font-size:15px;font-weight:700;color:{C["ink"]};margin-bottom:14px;letter-spacing:-0.01em;">11 · Product Image &amp; Certificates</div>', unsafe_allow_html=True)
+
+    st.markdown(mlabel("Product Image"), unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload a bottle or label photo — displayed on the consumer e-label page.</div>', unsafe_allow_html=True)
+    _cur_img = p.get("product_image")
+    if _cur_img:
+        _thumb_ext = (p.get("product_image_filename") or "").rsplit(".", 1)[-1].lower()
+        _thumb_mime = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}.get(_thumb_ext, "image/jpeg")
+        img_col, btn_col = st.columns([3, 1])
+        with img_col:
+            st.markdown(f'<img src="data:{_thumb_mime};base64,{_cur_img}" style="width:100%;max-width:280px;border-radius:12px;border:1px solid {C["ink08"]};" />', unsafe_allow_html=True)
+        with btn_col:
+            _rm_img = st.button("Remove image", key="rm_img_btn", type="secondary")
+    _img_file = st.file_uploader("Upload product image", type=["png", "jpg", "jpeg", "webp"], label_visibility="collapsed", key="img_upload")
+
+    st.markdown(f'<div style="height:12px;"></div>', unsafe_allow_html=True)
+    st.markdown(mlabel("Certificate Documents"), unsafe_allow_html=True)
+    st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload PDFs — organic certificates, lab reports, export documents. Downloadable on the public label.</div>', unsafe_allow_html=True)
+    for _ci, _cert in enumerate(p.get("certificates", [])):
+        _cid = _cert.get("id") or str(_ci)
+        cc1, cc2 = st.columns([4, 1])
+        with cc1:
+            st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{_cert.get("name","")}</strong>' + (f' — {_cert["issuer"]}' if _cert.get("issuer") else "") + (f' · expires {_cert["expiry"]}' if _cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
+        with cc2:
+            _rm_cert[_cid] = st.button("Remove", key=f"rm_{_cid}", type="secondary")
+    cf1, cf2, cf3 = st.columns(3)
+    with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
+    with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
+    with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
+    _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed", key="cert_upload")
+    if p.get("id"):
+        _attach_cert = st.button("Attach Certificate", key="attach_cert_btn", type="primary")
+
+    st.markdown(f'<div style="border-bottom:2px solid {C["ink08"]};margin:16px 0 4px;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:12px;"></div>', unsafe_allow_html=True)
+    submitted = st.button("Save Product", type="primary", use_container_width=True)
+
+    # Section 11 actions — handled before save so rerun exits early
+    if p.get("id"):
+        if _rm_img:
+            cur = get_product(p["id"])
+            cur.pop("product_image", None)
+            cur.pop("product_image_filename", None)
+            upsert_product(cur)
+            st.rerun()
+        for _cid, _clicked in _rm_cert.items():
+            if _clicked:
+                cur = get_product(p["id"])
+                cur["certificates"] = [c for c in cur.get("certificates", []) if (c.get("id") or "") != _cid]
+                upsert_product(cur)
+                st.rerun()
+        if _attach_cert and _cert_file and _cert_name.strip():
+            entry = {"id": str(uuid.uuid4())[:8], "name": _cert_name.strip(), "issuer": _cert_issuer.strip(), "expiry": _cert_expiry.strip(), "filename": _cert_file.name, "data": base64.b64encode(_cert_file.read()).decode()}
+            cur = get_product(p["id"])
+            cur.setdefault("certificates", []).append(entry)
+            upsert_product(cur)
+            st.rerun()
+
+    if submitted:
+        _errs = []
+        if not name.strip(): _errs.append("Wine name")
+        if not producer_name.strip(): _errs.append("Winery / producer")
+        if _errs:
+            st.session_state["_form_errors"] = _errs
+            st.rerun()
+        else:
+            custom_list = [l.strip() for l in custom_ings.splitlines() if l.strip()]
+            all_ings    = selected_common + [i for i in custom_list if i not in selected_common]
+            all_certs   = selected_certs + [c.strip() for c in custom_certs.split(",") if c.strip() and c.strip() not in selected_certs]
+            if auto_calc_energy:
+                calc_kj   = round((abv * 0.789 * 29) + (carb_g * 17) + (protein_g * 17) + (fat_g * 37))
+                calc_kcal = round(calc_kj / 4.184)
+                energy_kj, energy_kcal = float(calc_kj), float(calc_kcal)
+            _new_img      = base64.b64encode(_img_file.read()).decode() if _img_file is not None else p.get("product_image")
+            _new_img_name = _img_file.name if _img_file is not None else p.get("product_image_filename")
+            product = {
+                "id": p.get("id", str(uuid.uuid4())[:8]),
+                "name": (name or "").strip(), "vintage": (vintage or "").strip(), "variety": (variety or "").strip(),
+                "product_category": product_category, "pdo_pgi": (pdo_pgi or "").strip(),
+                "traditional_term": traditional_term if traditional_term != "— None —" else None,
+                "region": (region or "").strip(), "producer_name": (producer_name or "").strip(),
+                "collection": (collection or "").strip(),
+                "country": (country or "").strip(), "producer_address": (producer_address or "").strip(),
+                "abv": round(abv, 1), "net_quantity": (net_quantity or "").strip(), "lot_number": (lot_number or "").strip(),
+                "sweetness_descriptor": sweetness_descriptor if sweetness_descriptor != "— Not specified —" else None,
+                "sparkling_dosage": sparkling_dosage if sparkling_dosage != "— Not applicable —" else None,
+                "best_before_date": best_before_date.isoformat() if best_before_date else None,
+                "auto_calc_energy": auto_calc_energy,
+                "ingredients": all_ings, "fining_agents": selected_fining, "allergens": selected_allergens,
+                "so2_level": so2_level or None,
+                "nutrition": {"energy_kj": energy_kj, "energy_kcal": energy_kcal, "fat_g": fat_g, "saturated_fat_g": sat_fat_g, "carbohydrate_g": carb_g, "sugars_g": sugars_g, "protein_g": protein_g, "salt_g": salt_g},
+                "packaging": {"bottle_material": bottle_material, "closure_type": closure_type, "label_material": label_material, "capsule_material": capsule_material, "recycled_content_pct": recycled_pct or None, "recycling_instructions": (recycling_instructions or "").strip() or None},
+                "sustainability": {"carbon_footprint_kg": carbon_footprint or None, "water_usage_l": water_usage or None, "renewable_energy": renewable_energy},
+                "supply_chain": {"vineyard_name": (vineyard_name or "").strip() or None, "vineyard_region": (vineyard_region or "").strip() or None, "vineyard_country": (vineyard_country or "").strip() or None, "grape_origin_country": (grape_origin_country or "").strip() or None, "bottling_facility": (bottling_facility or "").strip() or None, "bottling_location": (bottling_location or "").strip() or None, "importer_name": (importer_name or "").strip() or None, "importer_address": (importer_address or "").strip() or None},
+                "certifications": all_certs, "certificates": p.get("certificates", []),
+                "physical_label_fields": physical_label_fields,
+                "pregnancy_warning": pregnancy_warning, "responsible_drinking": responsible_drinking,
+                "storage_info": (storage_info or "").strip(), "website": (website or "").strip(),
+                "price_rrp": price_rrp or None, "price_currency": price_currency,
+                "label_language": _LABEL_LANG_OPTIONS[label_language],
+                "product_image": _new_img, "product_image_filename": _new_img_name,
+                "status": p.get("status", "draft"),
+                "created_at": p.get("created_at", datetime.now().isoformat()),
+                "updated_at": datetime.now().isoformat(),
+            }
+            upsert_product(product)
+            if ANTHROPIC_AVAILABLE and _get_api_key() and all_ings:
+                with st.spinner("🤖 Checking allergens..."):
+                    detected = ai_detect_allergens(all_ings)
+                missing = [a for a in detected if a not in (selected_allergens or [])]
+                if missing:
+                    st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
+            st.session_state["_saved"] = True
+            st.query_params.update({"page": "edit", "id": product["id"]})
+            st.rerun()
+
+    # ── Post-save feedback
     if p.get("id"):
         if st.session_state.pop("_saved", False):
             st.success("Product saved.")
@@ -1784,61 +1863,6 @@ def show_product_form(existing=None):
                     cur = get_product(p["id"])
                     cur["allergens"] = list(set((cur.get("allergens") or []) + sugg["new"]))
                     upsert_product(cur); st.rerun()
-
-        with st.expander("11 · Product Image & Certificates", expanded=True):
-            st.markdown(mlabel("Product Image"), unsafe_allow_html=True)
-            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload a bottle or label photo — displayed on the consumer e-label page.</div>', unsafe_allow_html=True)
-            cur_img = p.get("product_image")
-            if cur_img:
-                img_col, btn_col = st.columns([3, 1])
-                with img_col:
-                    st.markdown(f'<img src="data:image/jpeg;base64,{cur_img}" style="width:100%;max-width:280px;border-radius:12px;border:1px solid {C["ink08"]};" />', unsafe_allow_html=True)
-                with btn_col:
-                    if st.button("Remove image", key="rm_img", type="secondary"):
-                        cur = get_product(p["id"])
-                        cur.pop("product_image", None)
-                        cur.pop("product_image_filename", None)
-                        upsert_product(cur); st.rerun()
-            img_file = st.file_uploader("Upload product image", type=["png", "jpg", "jpeg", "webp"], label_visibility="collapsed", key="img_upload")
-            if img_file is not None:
-                _fid = getattr(img_file, "file_id", None) or img_file.name
-                if st.session_state.get("_last_img_fid") != _fid:
-                    st.session_state["_last_img_fid"] = _fid
-                    cur = get_product(p["id"])
-                    cur["product_image"] = base64.b64encode(img_file.read()).decode()
-                    cur["product_image_filename"] = img_file.name
-                    upsert_product(cur)
-                    st.rerun()
-
-            st.markdown(f'<div style="height:8px;"></div>', unsafe_allow_html=True)
-            st.markdown(mlabel("Certificate Documents"), unsafe_allow_html=True)
-            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:8px;">Upload PDFs — organic certificates, lab reports, export documents. Downloadable on the public label.</div>', unsafe_allow_html=True)
-            for _ci, cert in enumerate(p.get("certificates", [])):
-                _cid = cert.get("id") or str(_ci)
-                cc1, cc2 = st.columns([4, 1])
-                with cc1:
-                    st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{cert.get("name","")}</strong>' + (f' — {cert["issuer"]}' if cert.get("issuer") else "") + (f' · expires {cert["expiry"]}' if cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
-                with cc2:
-                    if st.button("Remove", key=f"rm_{_cid}", type="secondary"):
-                        cur = get_product(p["id"])
-                        cur["certificates"] = [c for c in cur.get("certificates", []) if (c.get("id") or "") != _cid]
-                        upsert_product(cur); st.rerun()
-            with st.form("cert_upload", clear_on_submit=True):
-                cf1, cf2, cf3 = st.columns(3)
-                with cf1: cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
-                with cf2: cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
-                with cf3: cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
-                cert_file  = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed")
-                upload_btn = st.form_submit_button("Attach Certificate", type="primary")
-                if upload_btn and cert_file and cert_name.strip():
-                    _cfid = getattr(cert_file, "file_id", None) or cert_file.name
-                    if st.session_state.get("_last_cert_fid") != _cfid:
-                        st.session_state["_last_cert_fid"] = _cfid
-                        entry = {"id": str(uuid.uuid4())[:8], "name": cert_name.strip(), "issuer": cert_issuer.strip(), "expiry": cert_expiry.strip(), "filename": cert_file.name, "data": base64.b64encode(cert_file.read()).decode()}
-                        cur = get_product(p["id"])
-                        cur.setdefault("certificates", []).append(entry)
-                        upsert_product(cur)
-                        st.rerun()
 
         st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
         if st.button("← Back to Dashboard", key="bottom_back_btn", type="secondary", use_container_width=True):
