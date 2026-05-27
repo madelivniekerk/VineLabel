@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<script>window.location.replace('/?page=add');</script>
 <title>VineLabel — New Product</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -789,13 +790,13 @@
     if (current < TOTAL) {
       goTo(current + 1);
     } else {
-      window.location.href = 'qr.html';
+      window.location.href = '/?page=add';
     }
   });
 
   /* save & close */
   saveBtn.addEventListener('click', function () {
-    window.location.href = 'dashboard.html';
+    window.location.href = '/app/static/dashboard.html';
   });
 
   /* preview */

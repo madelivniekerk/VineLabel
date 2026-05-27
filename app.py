@@ -70,8 +70,21 @@ DATA_DIR = Path(__file__).parent / "data"
 PRODUCTS_FILE = DATA_DIR / "products.json"
 DATA_DIR.mkdir(exist_ok=True)
 
+# ── Supabase client ───────────────────────────────────────────────────────────
+@st.cache_resource
+def _get_supabase():
+    try:
+        from supabase import create_client
+        url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
+        key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
+        if url and key:
+            return create_client(url, key)
+    except Exception:
+        pass
+    return None
+
 # ── Data ──────────────────────────────────────────────────────────────────────
-def load_products():
+def _local_load_products():
     if not PRODUCTS_FILE.exists():
         return []
     try:
@@ -80,15 +93,110 @@ def load_products():
     except (json.JSONDecodeError, ValueError):
         return []
 
-def save_products(products):
+def _local_save_products(products):
     tmp = PRODUCTS_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(products, f, indent=2, ensure_ascii=False)
     tmp.replace(PRODUCTS_FILE)
 
+@st.cache_data(ttl=30)
+def load_products():
+    sb = _get_supabase()
+    if sb:
+        try:
+            rows = sb.table("products").select("data").order("created_at").execute()
+            products = [r["data"] for r in rows.data]
+            _sync_static_products(products)
+            return products
+        except Exception:
+            pass
+    return _local_load_products()
+
+def save_products(products):
+    sb = _get_supabase()
+    if sb:
+        try:
+            rows = [_product_to_row(p) for p in products]
+            sb.table("products").upsert(rows).execute()
+            load_products.clear()
+            _sync_static_products(products)
+            return
+        except Exception:
+            pass
+    _local_save_products(products)
+    _sync_static_products(products)
+
+def upsert_product(product):
+    sb = _get_supabase()
+    if sb:
+        try:
+            sb.table("products").upsert(_product_to_row(product)).execute()
+            load_products.clear()
+            _sync_static_products(load_products())
+            return
+        except Exception:
+            pass
+    # Local fallback
+    products = _local_load_products()
+    for i, p in enumerate(products):
+        if p["id"] == product["id"]:
+            products[i] = product
+            _local_save_products(products)
+            _sync_static_products(products)
+            return
+    products.append(product)
+    _local_save_products(products)
+    _sync_static_products(products)
+
+def get_product(pid):
+    sb = _get_supabase()
+    if sb:
+        try:
+            rows = sb.table("products").select("data").eq("id", pid).execute()
+            return rows.data[0]["data"] if rows.data else None
+        except Exception:
+            pass
+    return next((p for p in _local_load_products() if p["id"] == pid), None)
+
+def _product_to_row(p):
+    return {
+        "id": p.get("id", ""),
+        "name": p.get("name", ""),
+        "vintage": p.get("vintage", ""),
+        "variety": p.get("variety", ""),
+        "region": p.get("region", ""),
+        "producer_name": p.get("producer_name", ""),
+        "collection": p.get("collection", ""),
+        "status": p.get("status", "draft"),
+        "data": p,
+        "updated_at": datetime.now().isoformat(),
+    }
+
+def _sync_static_products(products):
+    static_dir = Path(__file__).parent / "static"
+    if not static_dir.exists():
+        return
+    out = [{"id": p.get("id",""), "name": p.get("name",""), "variety": p.get("variety",""),
+            "region": p.get("region",""), "vintage": p.get("vintage",""),
+            "type": p.get("type","Red"), "status": p.get("status","draft")} for p in products]
+    try:
+        tmp = static_dir / "products_data.json.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(out, f, ensure_ascii=False)
+        tmp.replace(static_dir / "products_data.json")
+    except Exception:
+        pass
+
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
 def load_settings():
+    sb = _get_supabase()
+    if sb:
+        try:
+            rows = sb.table("settings").select("data").eq("id", "default").execute()
+            return rows.data[0]["data"] if rows.data else {}
+        except Exception:
+            pass
     if not SETTINGS_FILE.exists():
         return {}
     try:
@@ -98,23 +206,21 @@ def load_settings():
         return {}
 
 def save_settings(settings):
+    sb = _get_supabase()
+    if sb:
+        try:
+            sb.table("settings").upsert({
+                "id": "default",
+                "data": settings,
+                "updated_at": datetime.now().isoformat(),
+            }).execute()
+            return
+        except Exception:
+            pass
     tmp = SETTINGS_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(settings, f, indent=2)
     tmp.replace(SETTINGS_FILE)
-
-def get_product(pid):
-    return next((p for p in load_products() if p["id"] == pid), None)
-
-def upsert_product(product):
-    products = load_products()
-    for i, p in enumerate(products):
-        if p["id"] == product["id"]:
-            products[i] = product
-            save_products(products)
-            return
-    products.append(product)
-    save_products(products)
 
 # ── Compliance ────────────────────────────────────────────────────────────────
 COMPLIANCE = {
@@ -235,7 +341,7 @@ def ai_detect_allergens(ingredients):
 
 def ai_translate_label(product, languages=("de", "fr", "it", "es")):
     if not ANTHROPIC_AVAILABLE or not _get_api_key():
-        return {}
+        return {}, "Anthropic library or API key not available."
     LANG_NAMES = {"de": "German", "fr": "French", "it": "Italian", "es": "Spanish"}
     to_translate = {}
     if product.get("ingredients"):
@@ -248,14 +354,15 @@ def ai_translate_label(product, languages=("de", "fr", "it", "es")):
     if product.get("storage_info"):
         to_translate["storage_info"] = product["storage_info"]
     if not to_translate:
-        return {}
+        return {}, "No translatable content found — add ingredients, allergens, or storage info first."
     results = {}
+    last_error = None
     client = _anthropic.Anthropic(api_key=_get_api_key())
     for lang in languages:
         try:
             msg = client.messages.create(
                 model="claude-haiku-4-5-20251001",
-                max_tokens=600,
+                max_tokens=1024,
                 messages=[{"role": "user", "content": (
                     f"Translate the following wine label fields into {LANG_NAMES[lang]} "
                     "for EU regulatory compliance labelling.\n"
@@ -266,10 +373,16 @@ def ai_translate_label(product, languages=("de", "fr", "it", "es")):
                     f"Reply with ONLY a JSON object with the same keys, values in {LANG_NAMES[lang]}."
                 )}]
             )
-            results[lang] = json.loads(msg.content[0].text.strip())
-        except Exception:
+            raw = msg.content[0].text.strip()
+            # Strip markdown code fences if present
+            if raw.startswith("```"):
+                raw = raw.split("```")[-2] if "```" in raw[3:] else raw
+                raw = raw.lstrip("json").strip()
+            results[lang] = json.loads(raw)
+        except Exception as e:
+            last_error = str(e)
             results[lang] = {}
-    return results
+    return results, last_error
 
 # ── Design ────────────────────────────────────────────────────────────────────
 C = {
@@ -301,6 +414,45 @@ C = {
     "mutedDark":"#6e5a3d",
 }
 
+# Static translations for fixed EU-label UI strings (not product data)
+_LABEL_UI = {
+    "Ingredients":            {"de": "Zutaten",            "fr": "Ingrédients",                "it": "Ingredienti",          "es": "Ingredientes"},
+    "Contains Allergens":     {"de": "Enthält Allergene",  "fr": "Contient des allergènes",     "it": "Contiene allergeni",   "es": "Contiene alérgenos"},
+    "Nutrition · per 100 mL": {"de": "Nährwerte · je 100 mL", "fr": "Valeurs nutritionnelles · pour 100 mL", "it": "Valori nutrizionali · per 100 mL", "es": "Información nutricional · por 100 mL"},
+    "Energy":                 {"de": "Energie",             "fr": "Énergie",                    "it": "Energia",              "es": "Energía"},
+    "Fat":                    {"de": "Fett",                "fr": "Matières grasses",            "it": "Grassi",               "es": "Grasas"},
+    "of which saturates":     {"de": "davon ges. Fettsäuren", "fr": "dont acides gras saturés", "it": "di cui acidi grassi saturi", "es": "de las cuales saturadas"},
+    "Carbohydrate":           {"de": "Kohlenhydrate",       "fr": "Glucides",                   "it": "Carboidrati",          "es": "Hidratos de carbono"},
+    "of which sugars":        {"de": "davon Zucker",        "fr": "dont sucres",                "it": "di cui zuccheri",      "es": "de los cuales azúcares"},
+    "Protein":                {"de": "Eiweiß",              "fr": "Protéines",                  "it": "Proteine",             "es": "Proteínas"},
+    "Salt":                   {"de": "Salz",                "fr": "Sel",                        "it": "Sale",                 "es": "Sal"},
+    "Packaging & Recycling":  {"de": "Verpackung & Recycling", "fr": "Emballage & Recyclage",  "it": "Imballaggio & Riciclaggio", "es": "Envase & Reciclaje"},
+    "Carbon Footprint":       {"de": "CO₂-Fußabdruck",     "fr": "Empreinte carbone",          "it": "Impronta carbonica",   "es": "Huella de carbono"},
+    "Provenance":             {"de": "Herkunft",            "fr": "Provenance",                 "it": "Provenienza",          "es": "Procedencia"},
+    "Certifications":         {"de": "Zertifizierungen",   "fr": "Certifications",             "it": "Certificazioni",       "es": "Certificaciones"},
+    "Storage:":               {"de": "Lagerung:",           "fr": "Conservation :",             "it": "Conservazione:",       "es": "Almacenamiento:"},
+    # Packaging material display phrases
+    "Glass bottle":           {"de": "Glasflasche",         "fr": "Bouteille en verre",         "it": "Bottiglia di vetro",   "es": "Botella de vidrio"},
+    "Aluminium bottle":       {"de": "Aluminiumflasche",    "fr": "Bouteille en aluminium",     "it": "Bottiglia di alluminio","es": "Botella de aluminio"},
+    "Natural cork":           {"de": "Naturkorken",         "fr": "Liège naturel",              "it": "Sughero naturale",     "es": "Corcho natural"},
+    "Screwcap":               {"de": "Schraubverschluss",   "fr": "Capsule à vis",              "it": "Tappo a vite",         "es": "Tapón de rosca"},
+    "Synthetic cork":         {"de": "Kunststoffkorken",    "fr": "Bouchon synthétique",        "it": "Tappo sintetico",      "es": "Corcho sintético"},
+    "Tin":                    {"de": "Zinn",                "fr": "Étain",                      "it": "Stagno",               "es": "Estaño"},
+    "Aluminium":              {"de": "Aluminium",           "fr": "Aluminium",                  "it": "Alluminio",            "es": "Aluminio"},
+    "Paper label":            {"de": "Papieretikett",       "fr": "Étiquette en papier",        "it": "Etichetta in carta",   "es": "Etiqueta de papel"},
+    "Tin capsule":            {"de": "Zinnkapsel",          "fr": "Capsule en étain",           "it": "Capsula in stagno",    "es": "Cápsula de estaño"},
+    "Aluminium capsule":      {"de": "Aluminiumkapsel",     "fr": "Capsule en aluminium",       "it": "Capsula in alluminio", "es": "Cápsula de aluminio"},
+    "PVC capsule":            {"de": "PVC-Kapsel",          "fr": "Capsule en PVC",             "it": "Capsula in PVC",       "es": "Cápsula de PVC"},
+    # Recycling tips
+    "Recycle at glass bank":              {"de": "Im Glascontainer recyceln",        "fr": "Recycler en conteneur à verre",    "it": "Riciclare al cassonetto del vetro",   "es": "Reciclar en contenedor de vidrio"},
+    "Compost or cork recycling program":  {"de": "Kompostieren oder Korkrecycling",  "fr": "Composter ou recycler le liège",   "it": "Compostare o riciclaggio del sughero","es": "Compostar o reciclar el corcho"},
+    "Recycle with metals":                {"de": "Mit Metall recyceln",              "fr": "Recycler avec les métaux",         "it": "Riciclare con i metalli",             "es": "Reciclar con metales"},
+    "General waste":                      {"de": "Allgemeiner Abfall",               "fr": "Déchets généraux",                 "it": "Rifiuti generali",                    "es": "Residuos generales"},
+    "Remove label before recycling bottle":{"de": "Etikett vor dem Recyceln entfernen","fr": "Retirer l'étiquette avant recyclage","it": "Rimuovere l'etichetta prima del riciclaggio","es": "Retirar la etiqueta antes de reciclar"},
+    "General waste — not recyclable":     {"de": "Allgemeiner Abfall — nicht recycelbar","fr": "Déchets — non recyclable",    "it": "Rifiuti — non riciclabile",           "es": "Residuos — no reciclable"},
+    "% recycled glass content":           {"de": "% Recyclingglas-Anteil",           "fr": "% de verre recyclé",              "it": "% di vetro riciclato",                "es": "% de vidrio reciclado"},
+}
+
 def load_hero():
     for name in ["cellar-hero.png", "hero.png"]:
         hero = Path(__file__).parent / "assets" / name
@@ -314,6 +466,7 @@ def show_landing():
     bg_img  = f'url("data:image/jpeg;base64,{wine_bg}")' if wine_bg else "none"
     st.markdown(f"""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap');
 html{{
     background-image:
         radial-gradient(ellipse at center,transparent 55%,rgba(0,0,0,0.55) 100%),
@@ -326,72 +479,83 @@ html{{
     background-repeat:no-repeat!important;
     background-attachment:fixed!important;
 }}
+body,
+[data-testid="stApp"],
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+[data-testid="stMain"],
 [data-testid="stMainBlockContainer"],
-.block-container{{
+[data-testid="stVerticalBlock"],
+[data-testid="stVerticalBlockBorderWrapper"],
+[data-testid="stHorizontalBlock"],
+[data-testid="stColumn"],
+[data-testid="stBottom"],
+.main,.block-container{{
+    background:none!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
     padding:0!important;
     max-width:100%!important;
 }}
-html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"]{{
-    overflow:hidden!important;
-    height:100vh!important;
-}}
+#MainMenu,footer,[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none!important;}}
 ::-webkit-scrollbar{{display:none!important;}}
-*{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
+html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
 </style>
-<nav style="position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:22px 56px;">
+<nav style="position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:16px 56px;">
   <div style="display:flex;align-items:center;gap:14px;">
-    <div style="width:44px;height:44px;border-radius:8px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:22px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),0 4px 14px rgba(0,0,0,0.4);">V</div>
+    <div style="width:40px;height:40px;border-radius:8px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),0 4px 14px rgba(0,0,0,0.4);">V</div>
     <div style="line-height:1.1;">
-      <div style="font-family:Gloock,serif;font-size:22px;color:#f3ead9;letter-spacing:0.005em;">VineLabel</div>
-      <div style="font-size:10.5px;letter-spacing:0.28em;text-transform:uppercase;color:#b7a786;margin-top:3px;">EU DPP Studio</div>
+      <div style="font-family:Gloock,serif;font-size:20px;color:#f3ead9;letter-spacing:0.005em;">VineLabel</div>
+      <div style="font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#b7a786;margin-top:2px;">EU DPP Studio</div>
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px;">
-    <a href="?dashboard=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;padding:11px 18px;border-radius:8px;border:1px solid rgba(243,234,217,0.22);background:rgba(243,234,217,0.04);color:#f3ead9;text-decoration:none;">Sign in</a>
-    <a href="?dashboard=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;padding:11px 18px;border-radius:8px;background:#7a1d24;color:#f3ead9;text-decoration:none;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);">Start free →</a>
+    <a href="?signin=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;border:1px solid rgba(243,234,217,0.22);background:rgba(243,234,217,0.04);color:#f3ead9;text-decoration:none;">Sign in</a>
+    <a href="?signin=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;background:#7a1d24;color:#f3ead9;text-decoration:none;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);">Start free →</a>
   </div>
 </nav>
-<main style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);padding:40px 56px 80px;min-height:calc(100vh - 88px);align-items:center;gap:40px;">
+<main style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);padding:0 56px 24px;align-items:start;gap:40px;">
   <div style="max-width:620px;">
-    <div style="display:inline-flex;align-items:center;gap:10px;padding:6px 12px 6px 8px;border-radius:999px;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.14);font-size:11.5px;letter-spacing:0.18em;text-transform:uppercase;color:#b7a786;margin-bottom:24px;">
+    <div style="display:inline-flex;align-items:center;gap:10px;padding:5px 12px 5px 8px;border-radius:999px;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.14);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#b7a786;margin-bottom:6px;">
       <span style="width:7px;height:7px;border-radius:50%;background:#c89a5a;box-shadow:0 0 0 3px rgba(200,154,90,0.18);display:inline-block;"></span>AI-Powered · EU Reg. 2021/2117 · Built for Australia
     </div>
-    <div style="font-family:Caveat,cursive;font-size:28px;color:#c89a5a;line-height:1.1;margin:0 0 14px;display:flex;align-items:center;gap:14px;">
+    <div style="font-family:Caveat,cursive;font-size:24px;color:#c89a5a;line-height:1.1;margin:0 0 2px;display:flex;align-items:center;gap:14px;">
       <span style="width:38px;height:1px;background:#c89a5a;opacity:0.7;display:inline-block;"></span>the only wine label tool with built-in AI
     </div>
-    <h1 style="font-family:Gloock,serif;font-weight:400;font-size:clamp(44px,5.6vw,78px);line-height:1.02;letter-spacing:-0.01em;margin:0 0 22px;color:#f3ead9;">
+    <h1 style="font-family:Gloock,serif;font-weight:400;font-size:clamp(36px,4vw,58px);line-height:1.05;letter-spacing:-0.01em;margin:0 0 2px;color:#f3ead9;">
       Your EU label,<br>
-      <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;font-size:0.78em;display:block;margin-top:6px;white-space:nowrap;">approved before it ships.</span>
+      <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;font-size:0.82em;display:block;margin-top:4px;white-space:nowrap;">approved before it ships.</span>
     </h1>
-    <p style="font-size:18px;line-height:1.6;color:rgba(243,234,217,0.82);margin:0 0 26px;max-width:52ch;">
+    <p style="font-size:17px;line-height:1.55;color:rgba(243,234,217,0.82);margin:0 0 16px;max-width:52ch;">
       A <strong style="color:#f3ead9;font-weight:500;">wrong allergen declaration</strong> can hold your shipment at EU customs.
       A <strong style="color:#f3ead9;font-weight:500;">missing translation</strong> can get your label rejected at the importer.
       VineLabel catches both — automatically — before you print a single QR code.
     </p>
-    <ul style="display:flex;flex-direction:column;gap:12px;margin:0 0 32px;padding:0;list-style:none;">
-      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
-        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+    <ul style="display:flex;flex-direction:column;gap:9px;margin:0 0 20px;padding:0;list-style:none;">
+      <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
+        <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
         <span><b style="color:#f3ead9;font-weight:500;">AI allergen scan</b> — paste your ingredients; we flag every allergen you're legally required to declare under EU law.</span>
       </li>
-      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
-        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+      <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
+        <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
         <span><b style="color:#f3ead9;font-weight:500;">One-click translation</b> to German, French, Italian &amp; Spanish — no translators, no copy-pasting, no extra fees.</span>
       </li>
-      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
-        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+      <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
+        <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
         <span><b style="color:#f3ead9;font-weight:500;">Live compliance score</b> — know exactly what's missing across Reg. 2021/2117, PPWR 2025, and ESPR 2026.</span>
       </li>
-      <li style="display:flex;align-items:flex-start;gap:14px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.45;">
-        <span style="flex:0 0 24px;width:24px;height:24px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:13px;">✓</span>
+      <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
+        <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
         <span><b style="color:#f3ead9;font-weight:500;">Winery profile pre-fill</b> — enter your producer and importer details once; every new label auto-populates them.</span>
       </li>
     </ul>
-    <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
-      <a href="?dashboard=1" style="background:linear-gradient(180deg,#9c2731,#7a1d24);color:#f3ead9;font-family:Inter,sans-serif;font-size:15.5px;font-weight:600;padding:14px 26px;border-radius:10px;text-decoration:none;display:inline-block;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);letter-spacing:0.01em;">Start free — 2 labels included</a>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <a href="?signin=1" style="background:linear-gradient(180deg,#9c2731,#7a1d24);color:#f3ead9;font-family:Inter,sans-serif;font-size:14.5px;font-weight:600;padding:12px 24px;border-radius:10px;text-decoration:none;display:inline-block;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);letter-spacing:0.01em;">Start free — 2 labels included</a>
       <span style="font-size:13px;color:#b7a786;">No credit card. Cancel any time.</span>
     </div>
   </div>
-  <aside style="position:relative;height:100%;min-height:540px;" aria-hidden="true">
+  <aside style="position:relative;height:100%;min-height:420px;" aria-hidden="true">
     <div style="position:absolute;top:28%;left:52%;transform:translateX(-50%) rotate(-3deg);color:#fff;font-family:Caveat,cursive;font-size:26px;line-height:1.05;text-align:center;width:220px;text-shadow:0 2px 12px rgba(0,0,0,0.7);">
       every bottle gets one<br><span style="display:block;font-size:44px;margin-top:4px;line-height:1;">↓</span>
     </div>
@@ -432,7 +596,7 @@ def _landing_login():
                 st.session_state["winery_name"]  = winery.strip()
                 st.session_state["winery_email"] = email.strip()
                 st.session_state["show_login"]   = False
-                st.session_state["page"]         = "dashboard"
+                st.query_params["page"] = "dashboard"
                 st.rerun()
             else:
                 st.error("Please enter your winery name.")
@@ -725,13 +889,34 @@ def compliance_badges(product):
     st.markdown(html + "</div>", unsafe_allow_html=True)
 
 # ── Public label ──────────────────────────────────────────────────────────────
-def show_public_label(pid):
+def show_public_label(pid, is_preview=False):
     p = get_product(pid)
     if not p:
         st.error("Label not found.")
         return
-    inject_css()
+    st.markdown(f"""<style>
+.block-container {{
+    background:{C["paper"]}!important;
+    border-radius:18px!important;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
+    padding:0!important;
+    margin-top:2rem!important;
+    max-width:520px!important;
+}}
+.block-container > div:first-child {{ margin-top:-3rem!important; padding-top:0!important; }}
+.block-container > div > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
+</style>""", unsafe_allow_html=True)
     st.markdown('<div class="public-label-marker" style="display:none;"></div>', unsafe_allow_html=True)
+
+    if is_preview:
+        st.markdown(
+            f'<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">'
+            f'<a href="?page=edit&id={pid}" style="display:inline-flex;align-items:center;gap:6px;'
+            f'background:{C["paper"]};border:1px solid {C["ink12"]};border-radius:8px;'
+            f'padding:6px 14px;font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;'
+            f'color:{C["ink"]};text-decoration:none;">✕ Close</a></div>',
+            unsafe_allow_html=True
+        )
 
     region_line = " · ".join(filter(None, [p.get("product_category"), p.get("variety"), p.get("region"), str(p.get("vintage", ""))]))
     st.markdown(f"""
@@ -752,18 +937,48 @@ def show_public_label(pid):
       </div>
     </div>""", unsafe_allow_html=True)
 
-    # Language selector
+    # Language selector — server-side browser language detection via Accept-Language header
     _translations = p.get("translations", {})
     _LANG_MAP = {"🇬🇧 English": "en", "🇩🇪 Deutsch": "de", "🇫🇷 Français": "fr", "🇮🇹 Italiano": "it", "🇪🇸 Español": "es"}
     _avail = {k: v for k, v in _LANG_MAP.items() if v == "en" or (v in _translations and _translations[v])}
-    _label_lang = "en"
+    _avail_keys = list(_avail.keys())
+    _avail_values = list(_avail.values())
+
+    # Read Accept-Language header — e.g. "fr-FR,fr;q=0.9,en-US;q=0.8" → "fr"
+    try:
+        _accept = st.context.headers.get("Accept-Language", "")
+        _browser_lang = _accept.split(",")[0].split(";")[0].split("-")[0].lower().strip()
+        if _browser_lang not in ["en", "de", "fr", "it", "es"]:
+            _browser_lang = "en"
+    except Exception:
+        _browser_lang = "en"
+
+    # Priority: browser language (if translation exists) → product default → English
+    _product_lang = p.get("label_language", "en")
+    _label_lang = next((l for l in [_browser_lang, _product_lang, "en"] if l in _avail_values), "en")
+
     if len(_avail) > 1:
-        _sel = st.selectbox("Language / Sprache / Langue / Lingua / Idioma", list(_avail.keys()), key="label_lang_sel", label_visibility="collapsed")
+        st.markdown(
+            f'<div style="background:{C["paper"]};border:1px solid {C["ink08"]};border-radius:10px;'
+            f'padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;">'
+            f'<span style="font-size:18px;">🌐</span>'
+            f'<span style="font-size:13px;font-weight:600;color:{C["ink"]};">View label in another language:</span>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        _default_key = next((k for k, v in _LANG_MAP.items() if v == _label_lang and k in _avail), _avail_keys[0])
+        _default_idx = _avail_keys.index(_default_key)
+        _sel = st.selectbox("View label in", _avail_keys, index=_default_idx, key="label_lang_sel")
         _label_lang = _avail[_sel]
     def _t(field):
         if _label_lang == "en" or _label_lang not in _translations:
             return None
         return _translations[_label_lang].get(field)
+
+    def _ui(text):
+        if _label_lang == "en":
+            return text
+        return _LABEL_UI.get(text, {}).get(_label_lang, text)
 
     # Product image
     if p.get("product_image"):
@@ -795,7 +1010,7 @@ def show_public_label(pid):
     ingredients = p.get("ingredients", [])
     allergens_raw = [a.split(" ")[0].lower() for a in p.get("allergens", [])]
     if ingredients:
-        st.markdown(mlabel("Ingredients"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Ingredients")), unsafe_allow_html=True)
         _ing_text = _t("ingredients")
         if _ing_text:
             st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:14px;line-height:1.7;color:{C["ink"]};background:{C["paper"]};border-radius:12px;padding:14px;border:1px solid {C["ink08"]};margin-bottom:10px;">{_ing_text}</div>', unsafe_allow_html=True)
@@ -805,20 +1020,20 @@ def show_public_label(pid):
 
     if p.get("allergens"):
         _all_text = _t("allergens") or ", ".join(p["allergens"])
-        st.markdown(f'<div style="background:#fff8f0;border-left:3px solid {C["gold"]};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["gold"]};text-transform:uppercase;margin-bottom:3px;">Contains Allergens</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{_all_text}</div></div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="background:#fff8f0;border-left:3px solid {C["gold"]};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["gold"]};text-transform:uppercase;margin-bottom:3px;">{_ui("Contains Allergens")}</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{_all_text}</div></div>', unsafe_allow_html=True)
 
     # Nutrition
     nu = p.get("nutrition", {})
     if nu and any(nu.values()):
-        st.markdown(mlabel("Nutrition · per 100 mL"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Nutrition · per 100 mL")), unsafe_allow_html=True)
         rows = [
-            ("Energy", f'{nu.get("energy_kj",0):.0f} kJ / {nu.get("energy_kcal",0):.0f} kcal', False),
-            ("Fat", f'{nu.get("fat_g",0):.1f} g', False),
-            ("of which saturates", f'{nu.get("saturated_fat_g",0):.1f} g', True),
-            ("Carbohydrate", f'{nu.get("carbohydrate_g",0):.1f} g', False),
-            ("of which sugars", f'{nu.get("sugars_g",0):.1f} g', True),
-            ("Protein", f'{nu.get("protein_g",0):.1f} g', False),
-            ("Salt", f'{nu.get("salt_g",0):.2f} g', False),
+            (_ui("Energy"), f'{nu.get("energy_kj",0):.0f} kJ / {nu.get("energy_kcal",0):.0f} kcal', False),
+            (_ui("Fat"), f'{nu.get("fat_g",0):.1f} g', False),
+            (_ui("of which saturates"), f'{nu.get("saturated_fat_g",0):.1f} g', True),
+            (_ui("Carbohydrate"), f'{nu.get("carbohydrate_g",0):.1f} g', False),
+            (_ui("of which sugars"), f'{nu.get("sugars_g",0):.1f} g', True),
+            (_ui("Protein"), f'{nu.get("protein_g",0):.1f} g', False),
+            (_ui("Salt"), f'{nu.get("salt_g",0):.2f} g', False),
         ]
         rows_html = "".join([
             f'<div style="display:flex;justify-content:space-between;padding:8px 14px;background:{C["paper"] if i%2==0 else C["bg"]};{"padding-left:24px;" if sub else ""}">'
@@ -830,7 +1045,7 @@ def show_public_label(pid):
     # Packaging & recycling
     pkg = p.get("packaging", {})
     if pkg and any(v for v in pkg.values() if v):
-        st.markdown(mlabel("Packaging & Recycling"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Packaging & Recycling")), unsafe_allow_html=True)
         RECYCLING = {
             "Glass": ("♻️", "Recycle at glass bank"),
             "Natural cork": ("🌿", "Compost or cork recycling program"),
@@ -841,21 +1056,16 @@ def show_public_label(pid):
             "Paper": ("♻️", "Remove label before recycling bottle"),
             "PVC": ("⚠️", "General waste — not recyclable"),
         }
-        pkg_items = [(v, k + (" bottle" if k == pkg.get("bottle_material") else ""), RECYCLING.get(k, ("♻️",""))[1])
-                     for k, v in [(pkg.get("bottle_material",""), RECYCLING.get(pkg.get("bottle_material",""), ("♻️",""))[0]),
-                                  (pkg.get("closure_type",""), RECYCLING.get(pkg.get("closure_type",""), ("♻️",""))[0]),
-                                  (pkg.get("label_material",""), RECYCLING.get(pkg.get("label_material",""), ("♻️",""))[0]),
-                                  (pkg.get("capsule_material",""), RECYCLING.get(pkg.get("capsule_material",""), ("♻️",""))[0])]
-                     if k and k != "None"]
-        # simpler approach
         pkg_rows = []
         for key, suffix in [("bottle_material", " bottle"), ("closure_type", ""), ("label_material", " label"), ("capsule_material", " capsule")]:
             val = pkg.get(key)
             if val and val != "None":
                 icon, tip = RECYCLING.get(val, ("♻️", ""))
-                pkg_rows.append((icon, val + suffix, tip))
+                phrase = val + suffix
+                pkg_rows.append((icon, _ui(phrase), _ui(tip)))
         if pkg.get("recycled_content_pct"):
-            pkg_rows.append(("🔄", f'{pkg["recycled_content_pct"]}% recycled glass content', ""))
+            pct = pkg["recycled_content_pct"]
+            pkg_rows.append(("🔄", f'{pct}{_ui("% recycled glass content")}', ""))
         rows_html = "".join([
             f'<div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:{C["paper"] if i%2==0 else C["bg"]};">'
             f'<div style="font-size:20px;">{icon}</div><div>'
@@ -871,14 +1081,14 @@ def show_public_label(pid):
     # Carbon
     sus = p.get("sustainability", {})
     if sus and sus.get("carbon_footprint_kg"):
-        st.markdown(mlabel("Carbon Footprint"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Carbon Footprint")), unsafe_allow_html=True)
         st.markdown(f'<div style="display:flex;align-items:center;gap:12px;background:{C["green"]}10;border:1px solid {C["green"]}28;border-radius:12px;padding:14px;margin-bottom:14px;"><div style="font-size:28px;">🌱</div><div><div style="font-family:Space Grotesk,sans-serif;font-size:22px;font-weight:700;color:{C["green"]};">{sus["carbon_footprint_kg"]} kg CO₂e</div><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["green"]}80;text-transform:uppercase;">per bottle · cradle to gate</div></div></div>', unsafe_allow_html=True)
 
     # Supply chain
     sc = p.get("supply_chain", {})
     sc_rows = [(k, v) for k, v in [("Vineyard", sc.get("vineyard_name")), ("Vineyard region", sc.get("vineyard_region")), ("Vineyard country", sc.get("vineyard_country")), ("Bottled by", sc.get("bottling_facility")), ("Bottling location", sc.get("bottling_location")), ("EU importer", sc.get("importer_name"))] if v]
     if sc_rows:
-        st.markdown(mlabel("Provenance"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Provenance")), unsafe_allow_html=True)
         rows_html = "".join([f'<div style="display:flex;justify-content:space-between;padding:8px 14px;background:{C["paper"] if i%2==0 else C["bg"]};"><div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};">{k}</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{v}</div></div>' for i, (k, v) in enumerate(sc_rows)])
         st.markdown(f'<div style="border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:14px;">{rows_html}</div>', unsafe_allow_html=True)
 
@@ -886,7 +1096,7 @@ def show_public_label(pid):
     certs = p.get("certifications", [])
     cert_docs = p.get("certificates", [])
     if certs or cert_docs:
-        st.markdown(mlabel("Certifications"), unsafe_allow_html=True)
+        st.markdown(mlabel(_ui("Certifications")), unsafe_allow_html=True)
         if certs:
             chips = "".join([f'<span style="background:{C["green"]}18;color:{C["green"]};border:1px solid {C["green"]}30;border-radius:999px;padding:4px 12px;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">{c}</span>' for c in certs])
             st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">{chips}</div>', unsafe_allow_html=True)
@@ -899,12 +1109,68 @@ def show_public_label(pid):
 
     if p.get("storage_info"):
         _sto_text = _t("storage_info") or p["storage_info"]
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;"><strong>Storage:</strong> {_sto_text}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};padding:10px 14px;background:{C["ink08"]};border-radius:10px;margin-bottom:14px;"><strong>{_ui("Storage:")}</strong> {_sto_text}</div>', unsafe_allow_html=True)
 
     if p.get("producer_address"):
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;color:{C["ink60"]};margin-bottom:14px;">{p.get("producer_name","")} · {p["producer_address"]}</div>', unsafe_allow_html=True)
 
     st.markdown(f'<div style="margin-top:24px;padding:14px;border-top:1px solid {C["ink08"]};text-align:center;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["ink60"]};text-transform:uppercase;">VineLabel · EU e-label Reg. 2021/2117</div></div></div>', unsafe_allow_html=True)
+
+
+def inject_dashboard_css():
+    wine_b64 = _load_asset_b64("wine-bg.jpg")
+    bg_img = f'url("data:image/jpeg;base64,{wine_b64}")' if wine_b64 else "none"
+    st.markdown('<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Gloock&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">', unsafe_allow_html=True)
+    st.markdown(f"""<style>
+html {{
+    background-image:
+        linear-gradient(95deg,rgba(12,8,6,0.96) 0%,rgba(12,8,6,0.86) 38%,rgba(12,8,6,0.45) 62%,rgba(12,8,6,0.15) 82%),
+        radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,0.55) 100%),
+        {bg_img}!important;
+    background-size:cover!important;
+    background-position:center right!important;
+    background-color:#1a0f08!important;
+    background-repeat:no-repeat!important;
+    background-attachment:fixed!important;
+}}
+body,[data-testid="stApp"],[data-testid="stAppViewContainer"],[data-testid="stMain"],
+[data-testid="stMainBlockContainer"],.main {{
+    background:none!important;
+    background-color:transparent!important;
+    background-image:none!important;
+    box-shadow:none!important;
+}}
+.block-container {{
+    background:none!important;
+    background-color:transparent!important;
+    max-width:780px!important;
+    padding-top:2rem!important;
+    padding-bottom:4rem!important;
+}}
+[data-testid="stExpander"] {{
+    background:{C["paperCard"]}!important;
+    border:none!important;
+    border-radius:14px!important;
+    box-shadow:0 12px 30px rgba(0,0,0,0.35),0 2px 6px rgba(0,0,0,0.2)!important;
+    overflow:hidden!important;
+}}
+[data-testid="stExpander"] summary {{
+    color:{C["wine"]}!important;
+    font-family:'Inter',sans-serif!important;
+    font-weight:600!important;
+    font-size:16px!important;
+}}
+[data-testid="stForm"] {{
+    background:{C["paperCard"]}!important;
+    border:none!important;
+    border-radius:10px!important;
+    padding:0!important;
+}}
+[data-testid="stButton"] button,[data-testid="stFormSubmitButton"] button {{
+    border-radius:8px!important;
+}}
+#MainMenu,footer,[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none!important;}}
+</style>""", unsafe_allow_html=True)
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
@@ -969,9 +1235,9 @@ def _product_card(p):
 
     # Handle submissions outside the form
     if edit_sub:
-        st.session_state.update({"page": "edit", "edit_id": pid}); st.rerun()
+        st.query_params.update({"page": "edit", "id": pid}); st.rerun()
     elif qr_sub:
-        st.session_state.update({"page": "qr", "qr_id": pid}); st.rerun()
+        st.query_params.update({"page": "qr", "id": pid}); st.rerun()
     elif pub_sub:
         all_p = load_products()
         for prod in all_p:
@@ -1005,40 +1271,37 @@ def _group_header(name, group_products):
 def show_dashboard():
     from collections import defaultdict
 
+    # Single white card containing all dashboard content
+    st.markdown(f"""<style>
+.block-container {{
+    background:{C["paper"]}!important;
+    border-radius:18px!important;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
+    padding:0.25rem 2rem 3rem!important;
+    margin-top:2rem!important;
+    max-width:780px!important;
+}}
+.block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
+</style>""", unsafe_allow_html=True)
+
     products  = load_products()
     published = sum(1 for p in products if p.get("status") == "published")
     drafts    = len(products) - published
 
-    hero_b64 = load_hero()
-    if hero_b64:
-        st.markdown(
-            f'<div style="margin:-1rem -1rem 0;position:relative;height:220px;overflow:hidden;border-radius:0 0 18px 18px;">'
-            f'<img src="data:image/png;base64,{hero_b64}" '
-            f'style="width:100%;height:100%;object-fit:cover;object-position:center 40%;" />'
-            f'<div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(26,26,46,0.18) 0%,rgba(26,26,46,0.62) 100%);border-radius:0 0 18px 18px;"></div>'
-            f'<div style="position:absolute;bottom:20px;left:20px;right:20px;">'
-            f'<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:10px;">Producer Dashboard</div>'
-            f'<div style="font-family:Gloock,serif;font-size:52px;font-weight:600;color:#fff;line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
-            f'<div style="font-family:Inter,sans-serif;font-size:14px;color:rgba(250,246,240,0.85);margin-top:10px;line-height:1.5;">{PRODUCER_NAME}</div>'
-            f'</div></div>'
-            f'<div style="height:20px;"></div>',
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown(
-            f'<div style="padding:24px 0 16px;">'
-            f'<div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.28em;color:{C["gold"]};text-transform:uppercase;margin-bottom:8px;">Producer Dashboard</div>'
-            f'<div style="font-family:Gloock,serif;font-size:38px;font-weight:600;color:{C["ink"]};line-height:1;letter-spacing:-0.02em;">VineLabel</div>'
-            f'<div style="font-family:Inter,sans-serif;font-size:14px;color:{C["ink2"]};margin-top:6px;">EU digital wine labels, made simple.</div>'
-            f'</div>',
-            unsafe_allow_html=True
-        )
+    winery = st.session_state.get("winery_name", "")
+    st.markdown(
+        f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;padding-top:4px;">'
+        f'<h1 style="font-family:Gloock,serif;font-size:36px;line-height:1.1;margin:0;color:{C["ink"]};letter-spacing:-0.005em;">Your products</h1>'
+        + (f'<span style="font-family:Caveat,cursive;color:{C["gold"]};font-size:22px;">welcome back, {winery}</span>' if winery else '')
+        + f'</div>',
+        unsafe_allow_html=True
+    )
 
     st.markdown(
-        f'<div style="display:flex;gap:10px;margin-bottom:20px;">'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["wineDim"]};letter-spacing:-0.02em;line-height:1;">{len(products)}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Products</div></div>'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["green"]};letter-spacing:-0.02em;line-height:1;">{published}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Published</div></div>'
-        f'<div style="flex:1;background:{C["paper"]};border:1px solid {C["paperEdge"]};border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 0 rgba(255,255,255,0.6) inset,0 12px 28px -12px rgba(0,0,0,0.45);"><div style="font-family:Gloock,serif;font-size:36px;font-weight:600;color:{C["gold"]};letter-spacing:-0.02em;line-height:1;">{drafts}</div><div style="font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.22em;color:{C["ink2"]};text-transform:uppercase;margin-top:8px;">Drafts</div></div>'
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px;">'
+        f'<div style="background:{C["paperCard"]};border-radius:14px;padding:22px 18px 18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><div style="font-family:Gloock,serif;font-size:56px;line-height:1;color:{C["wine"]};margin-bottom:10px;">{len(products)}</div><div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.32em;color:{C["mutedDark"]};text-transform:uppercase;">Products</div></div>'
+        f'<div style="background:{C["paperCard"]};border-radius:14px;padding:22px 18px 18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><div style="font-family:Gloock,serif;font-size:56px;line-height:1;color:{C["green"]};margin-bottom:10px;">{published}</div><div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.32em;color:{C["mutedDark"]};text-transform:uppercase;">Published</div></div>'
+        f'<div style="background:{C["paperCard"]};border-radius:14px;padding:22px 18px 18px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.08);"><div style="font-family:Gloock,serif;font-size:56px;line-height:1;color:{C["inkSoft"]};margin-bottom:10px;">{drafts}</div><div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.32em;color:{C["mutedDark"]};text-transform:uppercase;">Drafts</div></div>'
         f'</div>',
         unsafe_allow_html=True
     )
@@ -1074,7 +1337,7 @@ def show_dashboard():
         )
 
     if st.button("+ New Product", type="primary", use_container_width=True):
-        st.session_state.update({"page": "add", "edit_id": None}); st.rerun()
+        st.query_params["page"] = "add"; st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
@@ -1156,13 +1419,53 @@ def show_product_form(existing=None):
     p  = existing or {}
     _s = {} if existing else load_settings()
     _dp = _s.get("default_packaging", {})
+
+    # Wrap everything in a single paper-white card on the wine-photo background
+    st.markdown(f"""<style>
+.block-container {{
+    background:{C["paper"]}!important;
+    border-radius:18px!important;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
+    padding:0.25rem 2rem 3rem!important;
+    margin-top:2rem!important;
+    max-width:780px!important;
+}}
+.block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
+/* Back button and top-level secondary buttons: dark ink on white */
+.block-container > div > div > div [data-testid="stBaseButton-secondary"],
+.block-container > div > div > div [data-testid="stBaseButton-secondary"] button {{
+    background:transparent!important;
+    border:1px solid {C["paperEdge"]}!important;
+    color:{C["ink"]}!important;
+}}
+.block-container > div > div > div [data-testid="stBaseButton-secondary"] p {{
+    color:{C["ink"]}!important;
+}}
+</style>""", unsafe_allow_html=True)
+
     st.markdown('<div class="edit-page-marker" style="display:none;"></div>', unsafe_allow_html=True)
     bc, tc = st.columns([0.12, 0.88])
     with bc:
         if st.button("←", type="secondary"):
-            st.session_state["page"] = "dashboard"; st.rerun()
+            st.query_params["page"] = "dashboard"; st.rerun()
     with tc:
-        st.markdown(f'<div style="font-family:Gloock,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">{"Edit Product" if existing else "New Product"}</div>', unsafe_allow_html=True)
+        _heading = (p.get("name") or "Edit Product") if existing else "New Product"
+        st.markdown(f'<div style="font-family:Gloock,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">{_heading}</div>', unsafe_allow_html=True)
+
+    _form_errors = st.session_state.pop("_form_errors", [])
+    if _form_errors:
+        fields = " and ".join(f"**{f}**" for f in _form_errors)
+        st.error(f"Please fill in the required fields: {fields}", icon="⚠️")
+        _highlight_css = "".join(
+            f'input[aria-label="{lbl}"] {{ border: 2px solid #e53e3e !important; background: #fff5f5 !important; border-radius: 6px !important; }}'
+            for lbl in (["Wine name *"] if "Wine name" in _form_errors else [])
+                     + (["Winery / producer *"] if "Winery / producer" in _form_errors else [])
+        )
+        if _highlight_css:
+            st.markdown(f"<style>{_highlight_css}</style>", unsafe_allow_html=True)
+
+    if not existing:
+        st.markdown(f'<div style="background:rgba(200,154,90,0.1);border:1px solid rgba(200,154,90,0.35);border-radius:8px;padding:10px 14px;margin:4px 0 12px;font-size:13px;color:#7a5a1a;">Fill in the details below and click <b>Save Product</b> — then EU language translation will unlock automatically.</div>', unsafe_allow_html=True)
 
     if existing:
         with st.expander("Compliance status"):
@@ -1180,24 +1483,61 @@ def show_product_form(existing=None):
                     + (f'<div style="font-family:Space Grotesk,sans-serif;font-size:11px;color:{C["ink60"]};margin-top:3px;">Missing: {missing_str}</div>' if missing_str else "")
                     + '</div>', unsafe_allow_html=True)
 
-        # Translation — top of edit page so it's always visible
-        st.markdown(f'<div style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};margin:4px 0 4px;">🌐 EU Language Translation</div>', unsafe_allow_html=True)
-        if existing.get("translations"):
-            langs_done = ", ".join(k.upper() for k in existing["translations"].keys())
-            st.success(f"Translated: **{langs_done}**. Click to re-run.")
-        else:
-            st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:4px;">Translate ingredients, allergens, recycling &amp; storage into DE · FR · IT · ES for the consumer page.</div>', unsafe_allow_html=True)
+        # Translation — language selector
+        LANG_OPTIONS = {
+            "German (DE)":  "de",
+            "French (FR)":  "fr",
+            "Italian (IT)": "it",
+            "Spanish (ES)": "es",
+            "All 4 languages": "all",
+        }
+        existing_langs = existing.get("translations", {})
+        done_labels = [k for k, v in LANG_OPTIONS.items() if v != "all" and v in existing_langs]
+
+        st.markdown(f'<div style="font-size:13px;font-weight:600;color:{C["ink"]};margin:6px 0 2px;">🌐 EU Language Translation</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Choose a language — this will update the text shown on your consumer label for that language.</div>', unsafe_allow_html=True)
+
+        if done_labels:
+            st.success(f"Already translated: {', '.join(done_labels)}", icon="✅")
+
+        # Check what fields can actually be translated
+        _can_translate = any([
+            existing.get("ingredients"),
+            existing.get("allergens"),
+            existing.get("packaging", {}).get("recycling_instructions"),
+            existing.get("storage_info"),
+        ])
+
         if not ANTHROPIC_AVAILABLE or not _get_api_key():
             st.info("🔑 Add your Anthropic API key to `.streamlit/secrets.toml` to enable translation.", icon="ℹ️")
-        elif st.button("🌐 Translate to DE · FR · IT · ES", key="translate_top_btn"):
-            with st.spinner("Translating — takes 5–10 seconds..."):
-                cur = get_product(existing["id"])
-                translations = ai_translate_label(cur)
-            if translations:
-                cur["translations"] = translations
-                upsert_product(cur)
-                st.success("✅ Translated into German, French, Italian and Spanish.")
-                st.rerun()
+        elif not _can_translate:
+            st.warning("Fill in Ingredients, Allergens, or Storage info first — those are the fields that get translated onto the consumer label.", icon="ℹ️")
+        else:
+            t_col1, t_col2 = st.columns([2, 1])
+            with t_col1:
+                chosen_label = st.selectbox("Select language", list(LANG_OPTIONS.keys()), key="lang_select", label_visibility="collapsed")
+            with t_col2:
+                if st.button("Translate →", key="translate_top_btn", type="primary", use_container_width=True):
+                    lang_code = LANG_OPTIONS[chosen_label]
+                    langs = ("de","fr","it","es") if lang_code == "all" else (lang_code,)
+                    with st.spinner(f"Translating to {chosen_label}…"):
+                        cur = get_product(existing["id"])
+                        new_translations, _err = ai_translate_label(cur, languages=langs)
+                    # Check that at least one language got real content
+                    has_content = any(bool(v) for v in new_translations.values())
+                    if has_content:
+                        cur.setdefault("translations", {}).update(new_translations)
+                        upsert_product(cur)
+                        st.success(f"✅ Label updated in {chosen_label}. Click 'View Label' below to see it.")
+                        st.rerun()
+                    else:
+                        st.error(f"Translation failed: {_err or 'Empty response from API.'}")
+
+    if existing:
+        st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+        if st.button("👁 View Label", key="view_label_btn", use_container_width=True):
+            st.query_params.update({"label": existing["id"], "preview": "1"}); st.rerun()
+        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
     with st.form("product_form", clear_on_submit=False):
         # 1 — Identity
@@ -1342,6 +1682,10 @@ def show_product_form(existing=None):
         st.markdown(mlabel("10 — Optional"), unsafe_allow_html=True)
         storage_info = st.text_input("Storage information", value=p.get("storage_info", ""), placeholder="Store in a cool, dark place. Serve at 16–18°C.")
         website      = st.text_input("Producer website", value=p.get("website", ""), placeholder="https://www.winery.com.au")
+        _LABEL_LANG_OPTIONS = {"English": "en", "Deutsch (DE)": "de", "Français (FR)": "fr", "Italiano (IT)": "it", "Español (ES)": "es"}
+        _saved_lang = p.get("label_language", "en")
+        _lang_idx = list(_LABEL_LANG_OPTIONS.values()).index(_saved_lang) if _saved_lang in _LABEL_LANG_OPTIONS.values() else 0
+        label_language = st.selectbox("Default label language", list(_LABEL_LANG_OPTIONS.keys()), index=_lang_idx, help="The language shown first when a consumer scans the QR code.")
         _currencies  = ["AUD", "EUR", "USD", "GBP", "NZD", "CAD"]
         op1, op2     = st.columns([1, 3])
         with op1: price_currency = st.selectbox("Currency", _currencies, index=_currencies.index(p.get("price_currency", "AUD")) if p.get("price_currency") in _currencies else 0)
@@ -1351,10 +1695,12 @@ def show_product_form(existing=None):
         submitted = st.form_submit_button("Save Product", type="primary", use_container_width=True)
 
         if submitted:
-            if not name.strip():
-                st.error("Wine name is required.")
-            elif not producer_name.strip():
-                st.error("Producer / winery name is required.")
+            _errs = []
+            if not name.strip(): _errs.append("Wine name")
+            if not producer_name.strip(): _errs.append("Winery / producer")
+            if _errs:
+                st.session_state["_form_errors"] = _errs
+                st.rerun()
             else:
                 custom_list = [l.strip() for l in custom_ings.splitlines() if l.strip()]
                 all_ings    = selected_common + [i for i in custom_list if i not in selected_common]
@@ -1382,6 +1728,7 @@ def show_product_form(existing=None):
                     "certifications": all_certs, "certificates": p.get("certificates", []),
                     "storage_info": (storage_info or "").strip(), "website": (website or "").strip(),
                     "price_rrp": price_rrp or None, "price_currency": price_currency,
+                    "label_language": _LABEL_LANG_OPTIONS[label_language],
                     "status": p.get("status", "draft"),
                     "created_at": p.get("created_at", datetime.now().isoformat()),
                     "updated_at": datetime.now().isoformat(),
@@ -1393,7 +1740,8 @@ def show_product_form(existing=None):
                     missing = [a for a in detected if a not in (selected_allergens or [])]
                     if missing:
                         st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
-                st.session_state.update({"page": "edit", "edit_id": product["id"], "_saved": True})
+                st.session_state["_saved"] = True
+                st.query_params.update({"page": "edit", "id": product["id"]})
                 st.rerun()
 
     # Post-save feedback + AI tools (outside form, always visible for saved products)
@@ -1475,16 +1823,35 @@ def _compliance_badges_html(product):
 def show_qr_page(pid):
     p = get_product(pid)
     if not p:
-        st.session_state["page"] = "dashboard"; st.rerun(); return
+        st.query_params["page"] = "dashboard"; st.rerun(); return
 
-    # Marker lets CSS give this page its own white container
+    st.markdown(f"""<style>
+.block-container {{
+    background:{C["paper"]}!important;
+    border-radius:18px!important;
+    box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
+    padding:0.25rem 2rem 3rem!important;
+    margin-top:2rem!important;
+    max-width:520px!important;
+}}
+.block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
+.block-container > div > div > div [data-testid="stBaseButton-secondary"],
+.block-container > div > div > div [data-testid="stBaseButton-secondary"] button {{
+    background:transparent!important;
+    border:1px solid {C["paperEdge"]}!important;
+    color:{C["ink"]}!important;
+}}
+.block-container > div > div > div [data-testid="stBaseButton-secondary"] p {{
+    color:{C["ink"]}!important;
+}}
+</style>""", unsafe_allow_html=True)
     st.markdown('<div class="qr-page-marker" style="display:none;"></div>', unsafe_allow_html=True)
 
     # Header — dark ink now that we're on white
     bc, tc = st.columns([0.12, 0.88])
     with bc:
         if st.button("←", type="secondary"):
-            st.session_state["page"] = "dashboard"; st.rerun()
+            st.query_params["page"] = "dashboard"; st.rerun()
     with tc:
         st.markdown(f'<div style="font-family:Gloock,serif;font-size:26px;font-weight:600;color:{C["ink"]};padding:6px 0;letter-spacing:-0.01em;">QR Code</div>', unsafe_allow_html=True)
 
@@ -1547,46 +1914,40 @@ def show_qr_page(pid):
             st.download_button("Download QR", data=qr_bytes, file_name=f"vinelabel-{p['name'].lower().replace(' ','-')}-{p.get('vintage','')}.png", mime="image/png", use_container_width=True, type="primary")
         with col2:
             if st.button("Preview Label", use_container_width=True, type="secondary"):
-                st.session_state.update({"page": "preview", "preview_id": pid}); st.rerun()
+                st.query_params.update({"label": pid, "preview": "1"}); st.rerun()
     elif not QR_AVAILABLE:
         st.warning("Run `pip install qrcode[pil]` to enable QR codes.")
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
     if st.button("Edit Product", type="secondary", use_container_width=True):
-        st.session_state.update({"page": "edit", "edit_id": pid}); st.rerun()
+        st.query_params.update({"page": "edit", "id": pid}); st.rerun()
 
 
 # ── Router ────────────────────────────────────────────────────────────────────
 def main():
-    inject_css()
     if "label" in st.query_params:
-        show_public_label(st.query_params["label"])
+        inject_dashboard_css()
+        show_public_label(st.query_params["label"], is_preview="preview" in st.query_params)
         return
     if "signin" in st.query_params:
         st.session_state["show_login"] = True
         st.query_params.clear()
-    if "dashboard" in st.query_params:
-        st.session_state["page"] = "dashboard"
-        st.query_params.clear()
         st.rerun()
+    # Route directly from query params — survives browser refresh
+    qp   = st.query_params.get("page", "")
+    qp_id = st.query_params.get("id", "")
 
-    page = st.session_state.get("page", "landing")
-    if page == "landing":
-        show_landing()
-    elif page == "preview":
-        show_public_label(st.session_state.get("preview_id"))
-        st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
-        if st.button("← Back", type="secondary", use_container_width=True):
-            st.session_state["page"] = "qr"; st.rerun()
-    elif page == "add":
-        show_product_form()
-    elif page == "edit":
-        pid = st.session_state.get("edit_id")
-        show_product_form(existing=get_product(pid) if pid else None)
-    elif page == "qr":
-        show_qr_page(st.session_state.get("qr_id"))
+    if "dashboard" in st.query_params or qp == "dashboard":
+        inject_dashboard_css(); show_dashboard()
+    elif qp == "add":
+        inject_dashboard_css(); show_product_form()
+    elif qp == "edit":
+        inject_dashboard_css()
+        show_product_form(existing=get_product(qp_id) if qp_id else None)
+    elif qp == "qr":
+        inject_dashboard_css(); show_qr_page(qp_id)
     else:
-        show_dashboard()
+        show_landing()
 
 if __name__ == "__main__":
     main()

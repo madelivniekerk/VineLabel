@@ -6,6 +6,10 @@ __pycache__/
 
 # Product data — managed on the server, not in git
 data/products.json
+data/settings.json
+
+# Runtime-generated static file
+static/products_data.json
 
 # OS
 .DS_Store

@@ -229,83 +229,24 @@
 
       <div class="stats" role="list">
         <div class="stat" role="listitem">
-          <div class="stat-num">2</div>
+          <div class="stat-num" id="stat-total">—</div>
           <div class="stat-label">Products</div>
         </div>
         <div class="stat" role="listitem">
-          <div class="stat-num is-published">0</div>
+          <div class="stat-num is-published" id="stat-published">—</div>
           <div class="stat-label">Published</div>
         </div>
         <div class="stat" role="listitem">
-          <div class="stat-num is-drafts">2</div>
+          <div class="stat-num is-drafts" id="stat-drafts">—</div>
           <div class="stat-label">Drafts</div>
         </div>
       </div>
 
-      <details class="group" open>
-        <summary class="group-summary">
-          <span class="chev" aria-hidden="true">▶</span>
-          Red wine
-        </summary>
-        <div class="group-body">
-          <div class="group-head">
-            <div class="group-name">Red wine</div>
-            <div class="group-meta">
-              <span>2 Products</span><span class="dot"></span>
-              <span>0 Published</span><span class="dot"></span>
-              <span>0 Fully Compliant</span>
-            </div>
-          </div>
+      <div id="products-container">
+        <p style="color:var(--muted-dark);text-align:center;padding:32px 0;">Loading your products…</p>
+      </div>
 
-          <article class="product">
-            <div class="thumb" aria-hidden="true">
-              <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
-                <rect width="54" height="54" fill="#2a1212"/>
-                <g transform="translate(8,10)">
-                  <circle cx="6" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="14" cy="6" r="4.5" fill="#3a121a"/>
-                  <circle cx="22" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="30" cy="6" r="4.5" fill="#3a121a"/>
-                  <circle cx="10" cy="14" r="4.5" fill="#3a121a"/><circle cx="18" cy="16" r="4.5" fill="#5a1f2a"/>
-                  <circle cx="26" cy="14" r="4.5" fill="#3a121a"/><circle cx="14" cy="22" r="4.5" fill="#5a1f2a"/>
-                  <circle cx="22" cy="24" r="4.5" fill="#3a121a"/>
-                  <path d="M18 0 Q22 -2 26 2" stroke="#8a7a3a" stroke-width="1.4" fill="none"/>
-                </g>
-              </svg>
-            </div>
-            <div class="product-main">
-              <h3 class="product-name">Barossa Wine Valley</h3>
-              <div class="product-meta">Shiraz · Barossa Valley</div>
-            </div>
-            <div class="product-actions">
-              <button class="actions-btn" type="button">Actions <span class="caret">▾</span></button>
-              <span class="badge">Draft</span>
-            </div>
-          </article>
-
-          <article class="product">
-            <div class="thumb" aria-hidden="true">
-              <svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg">
-                <rect width="54" height="54" fill="#3b1820"/>
-                <g transform="translate(15,10)" fill="none">
-                  <path d="M2 4 L22 4 L20 16 Q12 22 4 16 Z" fill="#e6b8c8" stroke="#9a4f5e" stroke-width="1.2"/>
-                  <path d="M4 6 L20 6 L18.5 14 Q12 18 5.5 14 Z" fill="#c97186"/>
-                  <line x1="12" y1="22" x2="12" y2="30" stroke="#9a4f5e" stroke-width="1.6"/>
-                  <line x1="6" y1="32" x2="18" y2="32" stroke="#9a4f5e" stroke-width="1.6"/>
-                </g>
-              </svg>
-            </div>
-            <div class="product-main">
-              <h3 class="product-name">Barossa white 2021</h3>
-              <div class="product-meta">Chardonnay · Barossa Valley</div>
-            </div>
-            <div class="product-actions">
-              <button class="actions-btn" type="button">Actions <span class="caret">▾</span></button>
-              <span class="badge">Draft</span>
-            </div>
-          </article>
-        </div>
-      </details>
-
-      <a class="new-btn" href="new-product.html">
+      <a class="new-btn" id="new-btn" href="/?page=add">
         <span class="plus">+</span>
         New Product
       </a>
@@ -331,18 +272,16 @@
 </div>
 <script>
 (function () {
-  var appRoot = window.location.origin + '/';
-
-  function makeMenu(wrapper) {
+  function makeMenu(wrapper, productId) {
     var menu = document.createElement('div');
     menu.style.cssText =
       'position:absolute;right:0;top:calc(100% + 6px);background:#f3ead9;' +
       'border:1px solid rgba(40,28,18,0.12);border-radius:10px;' +
       'box-shadow:0 8px 24px rgba(0,0,0,0.3);z-index:200;min-width:148px;overflow:hidden;';
 
-    var newProductUrl = 'new-product.html';
-    var qrUrl = 'qr.html';
-    [['✏️  Edit', newProductUrl], ['⬜  QR Code', qrUrl], ['✓  Publish', appRoot]].forEach(function (item) {
+    var editUrl = '/?page=edit&id=' + productId;
+    var qrUrl   = '/?page=qr&id='   + productId;
+    [['✏️  Edit', editUrl], ['⬜  QR Code', qrUrl]].forEach(function (item) {
       var a = document.createElement('a');
       a.href = item[1];
       a.textContent = item[0];
@@ -356,22 +295,80 @@
     return menu;
   }
 
-  document.querySelectorAll('.actions-btn').forEach(function (btn) {
+  function attachMenu(btn, productId) {
     var wrap = btn.closest('.product-actions');
     wrap.style.position = 'relative';
     var open = null;
-
     btn.addEventListener('click', function (e) {
       e.stopPropagation();
       if (open) { open.remove(); open = null; return; }
-      open = makeMenu(wrap);
+      open = makeMenu(wrap, productId);
       wrap.appendChild(open);
     });
-
     document.addEventListener('click', function () {
       if (open) { open.remove(); open = null; }
     });
-  });
+  }
+
+  function thumbSvg(type) {
+    if ((type || '').toLowerCase().indexOf('white') !== -1 || (type || '').toLowerCase().indexOf('rosé') !== -1) {
+      return '<svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg"><rect width="54" height="54" fill="#3b1820"/><g transform="translate(15,10)" fill="none"><path d="M2 4 L22 4 L20 16 Q12 22 4 16 Z" fill="#e6b8c8" stroke="#9a4f5e" stroke-width="1.2"/><path d="M4 6 L20 6 L18.5 14 Q12 18 5.5 14 Z" fill="#c97186"/><line x1="12" y1="22" x2="12" y2="30" stroke="#9a4f5e" stroke-width="1.6"/><line x1="6" y1="32" x2="18" y2="32" stroke="#9a4f5e" stroke-width="1.6"/></g></svg>';
+    }
+    return '<svg viewBox="0 0 54 54" xmlns="http://www.w3.org/2000/svg"><rect width="54" height="54" fill="#2a1212"/><g transform="translate(8,10)"><circle cx="6" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="14" cy="6" r="4.5" fill="#3a121a"/><circle cx="22" cy="8" r="4.5" fill="#5a1f2a"/><circle cx="30" cy="6" r="4.5" fill="#3a121a"/><circle cx="10" cy="14" r="4.5" fill="#3a121a"/><circle cx="18" cy="16" r="4.5" fill="#5a1f2a"/><circle cx="26" cy="14" r="4.5" fill="#3a121a"/><circle cx="14" cy="22" r="4.5" fill="#5a1f2a"/><circle cx="22" cy="24" r="4.5" fill="#3a121a"/><path d="M18 0 Q22 -2 26 2" stroke="#8a7a3a" stroke-width="1.4" fill="none"/></g></svg>';
+  }
+
+  function renderProducts(products) {
+    var total     = products.length;
+    var published = products.filter(function(p){ return p.status === 'published'; }).length;
+    var drafts    = total - published;
+    document.getElementById('stat-total').textContent     = total;
+    document.getElementById('stat-published').textContent = published;
+    document.getElementById('stat-drafts').textContent    = drafts;
+
+    var container = document.getElementById('products-container');
+    if (total === 0) {
+      container.innerHTML = '<p style="color:var(--muted-dark);text-align:center;padding:32px 0;">No products yet. Click New Product to get started.</p>';
+      return;
+    }
+
+    var groups = {};
+    products.forEach(function(p) {
+      var t = p.type || 'Other';
+      if (!groups[t]) groups[t] = [];
+      groups[t].push(p);
+    });
+
+    var html = '';
+    Object.keys(groups).forEach(function(type) {
+      var items = groups[type];
+      var pubCount = items.filter(function(p){ return p.status === 'published'; }).length;
+      html += '<details class="group" open><summary class="group-summary"><span class="chev" aria-hidden="true">▶</span>' + type + '</summary><div class="group-body">';
+      html += '<div class="group-head"><div class="group-name">' + type + '</div>';
+      html += '<div class="group-meta"><span>' + items.length + ' Products</span><span class="dot"></span><span>' + pubCount + ' Published</span></div></div>';
+      items.forEach(function(p) {
+        var meta = [p.variety, p.region, p.vintage].filter(Boolean).join(' · ');
+        var badgeCls = p.status === 'published' ? 'badge is-published' : 'badge';
+        var badgeTxt = p.status === 'published' ? 'Published' : 'Draft';
+        html += '<article class="product" data-id="' + p.id + '">';
+        html += '<div class="thumb" aria-hidden="true">' + thumbSvg(type) + '</div>';
+        html += '<div class="product-main"><h3 class="product-name">' + p.name + '</h3><div class="product-meta">' + meta + '</div></div>';
+        html += '<div class="product-actions"><button class="actions-btn" type="button">Actions <span class="caret">▾</span></button>';
+        html += '<span class="' + badgeCls + '">' + badgeTxt + '</span></div></article>';
+      });
+      html += '</div></details>';
+    });
+    container.innerHTML = html;
+
+    container.querySelectorAll('.actions-btn').forEach(function(btn) {
+      var pid = btn.closest('.product').dataset.id;
+      attachMenu(btn, pid);
+    });
+  }
+
+  fetch('products_data.json?' + Date.now())
+    .then(function(r){ return r.ok ? r.json() : []; })
+    .catch(function(){ return []; })
+    .then(renderProducts);
 })();
 </script>
 </body>
