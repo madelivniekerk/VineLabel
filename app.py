@@ -1114,12 +1114,13 @@ def show_public_label(pid, is_preview=False):
         if certs:
             chips = "".join([f'<span style="background:{C["green"]}18;color:{C["green"]};border:1px solid {C["green"]}30;border-radius:999px;padding:4px 12px;font-family:JetBrains Mono,monospace;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">{c}</span>' for c in certs])
             st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">{chips}</div>', unsafe_allow_html=True)
-        for doc in cert_docs:
+        for _di, doc in enumerate(cert_docs):
             if doc.get("data"):
                 fname = doc.get("filename", "certificate.pdf")
                 ext   = fname.rsplit(".", 1)[-1].lower() if "." in fname else "pdf"
                 mime  = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if ext == "docx" else ("application/msword" if ext == "doc" else "application/pdf")
-                st.download_button(f"📄 {doc['name']}" + (f" — {doc['issuer']}" if doc.get("issuer") else ""), data=base64.b64decode(doc["data"]), file_name=fname, mime=mime, key=f"dl_{doc['id']}")
+                _dl_key = f"dl_{doc.get('id') or _di}"
+                st.download_button(f"📄 {doc.get('name','Certificate')}" + (f" — {doc['issuer']}" if doc.get("issuer") else ""), data=base64.b64decode(doc["data"]), file_name=fname, mime=mime, key=_dl_key)
 
     if p.get("storage_info"):
         _sto_text = _t("storage_info") or p["storage_info"]
