@@ -78,13 +78,23 @@ def _get_supabase():
         url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
         key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
         if url and key:
-            client = create_client(url, key)
-            st.session_state["_sb_status"] = "connected"
-            return client
-        st.session_state["_sb_status"] = "no_credentials"
-    except Exception as e:
-        st.session_state["_sb_status"] = f"error: {e}"
+            return create_client(url, key)
+    except Exception:
+        pass
     return None
+
+def _supabase_status():
+    try:
+        from supabase import create_client
+        url = st.secrets.get("SUPABASE_URL") or os.environ.get("SUPABASE_URL", "")
+        key = st.secrets.get("SUPABASE_KEY") or os.environ.get("SUPABASE_KEY", "")
+        if not url or not key:
+            return "no_credentials", ""
+        sb = create_client(url, key)
+        sb.table("products").select("id").limit(1).execute()
+        return "connected", ""
+    except Exception as e:
+        return "error", str(e)
 
 # ── Data ──────────────────────────────────────────────────────────────────────
 def _local_load_products():
@@ -1356,14 +1366,13 @@ def show_dashboard():
 .block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
 </style>""", unsafe_allow_html=True)
 
-    _get_supabase()  # trigger connection status
-    _sb_status = st.session_state.get("_sb_status", "")
+    _sb_status, _sb_err = _supabase_status()
     if _sb_status == "connected":
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#f0faf4;border:1px solid #22c55e40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#15803d;">&#9679; Connected to Supabase</div>', unsafe_allow_html=True)
     elif _sb_status == "no_credentials":
         st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fffbeb;border:1px solid #f59e0b40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#b45309;">&#9679; No Supabase credentials — using local storage</div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fff1f2;border:1px solid #f4364040;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#be123c;">&#9679; Supabase error: {_sb_status}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fff1f2;border:1px solid #f4364040;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#be123c;">&#9679; Supabase error: {_sb_err}</div>', unsafe_allow_html=True)
 
     products  = load_products()
     published = sum(1 for p in products if p.get("status") == "published")
