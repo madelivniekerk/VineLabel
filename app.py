@@ -906,12 +906,19 @@ def show_public_label(pid, is_preview=False):
         st.error("Label not found.")
         return
     st.markdown(f"""<style>
+[data-testid="stMainBlockContainer"] {{
+    padding-left:0!important;
+    padding-right:0!important;
+    max-width:100%!important;
+}}
 .block-container {{
     background:{C["paper"]}!important;
     border-radius:18px!important;
     box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
     padding:0!important;
     margin-top:2rem!important;
+    margin-left:auto!important;
+    margin-right:auto!important;
     max-width:520px!important;
 }}
 .block-container > div:first-child {{ margin-top:-3rem!important; padding-top:0!important; }}
