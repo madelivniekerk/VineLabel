@@ -142,8 +142,13 @@ def _auth_sign_out():
     for k in ["user_id", "user_email", "winery_name", "show_login"]:
         st.session_state.pop(k, None)
 
+ADMIN_EMAIL = "madelivniekerk@gmail.com"
+
 def _is_logged_in():
     return bool(st.session_state.get("user_id"))
+
+def _is_admin():
+    return st.session_state.get("user_email", "").lower() == ADMIN_EMAIL.lower()
 
 def _owner_id():
     return st.session_state.get("user_id", "")
@@ -1465,15 +1470,26 @@ def show_dashboard():
             st.query_params.clear()
             st.rerun()
 
-    products  = load_products(owner_id=_owner_id())
+    if _is_admin():
+        products = load_products()          # admin sees all wineries
+        st.markdown(
+            f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#f0f4ff;border:1px solid #6366f140;'
+            f'border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#4338ca;">'
+            f'&#9679; Admin view — showing all wineries</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        products = load_products(owner_id=_owner_id())
+
     published = sum(1 for p in products if p.get("status") == "published")
     drafts    = len(products) - published
 
     winery = st.session_state.get("winery_name", "")
+    heading = "All wineries" if _is_admin() else "Your products"
     st.markdown(
         f'<div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:22px;padding-top:4px;">'
-        f'<h1 style="font-family:Gloock,serif;font-size:36px;line-height:1.1;margin:0;color:{C["ink"]};letter-spacing:-0.005em;">Your products</h1>'
-        + (f'<span style="font-family:Caveat,cursive;color:{C["gold"]};font-size:22px;">welcome back, {winery}</span>' if winery else '')
+        f'<h1 style="font-family:Gloock,serif;font-size:36px;line-height:1.1;margin:0;color:{C["ink"]};letter-spacing:-0.005em;">{heading}</h1>'
+        + (f'<span style="font-family:Caveat,cursive;color:{C["gold"]};font-size:22px;">welcome back, {winery}</span>' if winery and not _is_admin() else '')
         + f'</div>',
         unsafe_allow_html=True
     )
