@@ -1057,6 +1057,33 @@ def show_public_label(pid, is_preview=False):
         _all_text = _t("allergens") or ", ".join(p["allergens"])
         st.markdown(f'<div style="background:#fff8f0;border-left:3px solid {C["gold"]};border-radius:0 8px 8px 0;padding:10px 14px;margin-bottom:14px;"><div style="font-family:JetBrains Mono,monospace;font-size:9px;font-weight:700;letter-spacing:0.15em;color:{C["gold"]};text-transform:uppercase;margin-bottom:3px;">{_ui("Contains Allergens")}</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{_all_text}</div></div>', unsafe_allow_html=True)
 
+    # Fining agents
+    fining = p.get("fining_agents", [])
+    if fining:
+        st.markdown(mlabel(_ui("Fining Agents")), unsafe_allow_html=True)
+        _fining_rows = "".join([
+            f'<div style="display:flex;align-items:center;padding:8px 14px;background:{C["paper"] if i%2==0 else C["bg"]};">'
+            f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink"]};">{agent}</div></div>'
+            for i, agent in enumerate(fining)
+        ])
+        st.markdown(f'<div style="border-radius:12px;border:1px solid {C["ink08"]};overflow:hidden;margin-bottom:14px;">{_fining_rows}</div>', unsafe_allow_html=True)
+
+    # SO2 level
+    if p.get("so2_level") and int(p["so2_level"]) > 0:
+        _so2 = int(p["so2_level"])
+        _so2_warn = _so2 > 10
+        _so2_bg   = "#fff8f0" if _so2_warn else C["paper"]
+        _so2_border = C["gold"] if _so2_warn else C["ink08"]
+        _so2_label = f'⚠️ {_ui("Contains Sulphites")}' if _so2_warn else _ui("Sulphur Dioxide (SO₂)")
+        st.markdown(
+            f'<div style="background:{_so2_bg};border:1px solid {_so2_border};border-radius:12px;'
+            f'padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;">'
+            f'<div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{_so2_label}</div>'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:13px;font-weight:700;color:{C["ink"]};">{_so2} mg/L</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+
     # Nutrition
     nu = p.get("nutrition", {})
     if nu and any(nu.values()):
