@@ -1964,7 +1964,7 @@ def show_qr_page(pid):
     box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
     padding:0.25rem 2rem 3rem!important;
     margin-top:2rem!important;
-    margin-left:56px!important;
+    margin-left:auto!important;
     margin-right:auto!important;
     max-width:520px!important;
 }}
