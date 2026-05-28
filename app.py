@@ -1175,10 +1175,17 @@ body,[data-testid="stApp"],[data-testid="stAppViewContainer"],[data-testid="stMa
     background-image:none!important;
     box-shadow:none!important;
 }}
+[data-testid="stMainBlockContainer"] {{
+    padding-left:0!important;
+    padding-right:0!important;
+    max-width:100%!important;
+}}
 .block-container {{
     background:none!important;
     background-color:transparent!important;
     max-width:780px!important;
+    margin-left:56px!important;
+    margin-right:auto!important;
     padding-top:2rem!important;
     padding-bottom:4rem!important;
 }}
@@ -1454,12 +1461,19 @@ def show_product_form(existing=None):
 
     # Wrap everything in a single paper-white card on the wine-photo background
     st.markdown(f"""<style>
+[data-testid="stMainBlockContainer"] {{
+    padding-left:0!important;
+    padding-right:0!important;
+    max-width:100%!important;
+}}
 .block-container {{
     background:{C["paper"]}!important;
     border-radius:18px!important;
     box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
     padding:0.25rem 2rem 3rem!important;
     margin-top:2rem!important;
+    margin-left:56px!important;
+    margin-right:auto!important;
     max-width:780px!important;
 }}
 .block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
@@ -1939,12 +1953,19 @@ def show_qr_page(pid):
         st.query_params["page"] = "dashboard"; st.rerun(); return
 
     st.markdown(f"""<style>
+[data-testid="stMainBlockContainer"] {{
+    padding-left:0!important;
+    padding-right:0!important;
+    max-width:100%!important;
+}}
 .block-container {{
     background:{C["paper"]}!important;
     border-radius:18px!important;
     box-shadow:0 12px 40px rgba(0,0,0,0.4),0 2px 8px rgba(0,0,0,0.25)!important;
     padding:0.25rem 2rem 3rem!important;
     margin-top:2rem!important;
+    margin-left:56px!important;
+    margin-right:auto!important;
     max-width:520px!important;
 }}
 .block-container > div:first-child {{ margin-top:0!important; padding-top:0!important; }}
