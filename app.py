@@ -96,6 +96,61 @@ def _supabase_status():
     except Exception as e:
         return "error", str(e)
 
+# ── Auth ──────────────────────────────────────────────────────────────────────
+def _auth_sign_in(email, password):
+    sb = _get_supabase()
+    if not sb:
+        return None, "No Supabase connection"
+    try:
+        res = sb.auth.sign_in_with_password({"email": email.strip(), "password": password})
+        user = res.user
+        st.session_state["user_id"]    = str(user.id)
+        st.session_state["user_email"] = user.email
+        meta = (user.user_metadata or {})
+        if meta.get("winery_name") and not st.session_state.get("winery_name"):
+            st.session_state["winery_name"] = meta["winery_name"]
+        return user, None
+    except Exception as e:
+        return None, str(e)
+
+def _auth_sign_up(email, password, winery_name):
+    sb = _get_supabase()
+    if not sb:
+        return None, "No Supabase connection"
+    try:
+        res = sb.auth.sign_up({
+            "email": email.strip(),
+            "password": password,
+            "options": {"data": {"winery_name": winery_name.strip()}},
+        })
+        user = res.user
+        if user:
+            st.session_state["user_id"]    = str(user.id)
+            st.session_state["user_email"] = user.email
+            st.session_state["winery_name"] = winery_name.strip()
+        return user, None
+    except Exception as e:
+        return None, str(e)
+
+def _auth_sign_out():
+    try:
+        sb = _get_supabase()
+        if sb:
+            sb.auth.sign_out()
+    except Exception:
+        pass
+    for k in ["user_id", "user_email", "winery_name", "show_login"]:
+        st.session_state.pop(k, None)
+
+def _is_logged_in():
+    return bool(st.session_state.get("user_id"))
+
+def _owner_id():
+    return st.session_state.get("user_id", "")
+
+def _owner_email():
+    return st.session_state.get("user_email", "")
+
 # ── Data ──────────────────────────────────────────────────────────────────────
 def _local_load_products():
     if not PRODUCTS_FILE.exists():
@@ -113,11 +168,14 @@ def _local_save_products(products):
     tmp.replace(PRODUCTS_FILE)
 
 @st.cache_data(ttl=30)
-def load_products():
+def load_products(owner_id=""):
     sb = _get_supabase()
     if sb:
         try:
-            rows = sb.table("products").select("data").order("created_at").execute()
+            q = sb.table("products").select("data")
+            if owner_id:
+                q = q.eq("owner_id", owner_id)
+            rows = q.order("created_at").execute()
             products = [r["data"] for r in rows.data]
             _sync_static_products(products)
             return products
@@ -131,7 +189,7 @@ def save_products(products):
         try:
             rows = [_product_to_row(p) for p in products]
             sb.table("products").upsert(rows).execute()
-            load_products.clear()
+            load_products.clear()  # clears all owner caches
             _sync_static_products(products)
             return
         except Exception:
@@ -144,7 +202,7 @@ def upsert_product(product):
     if sb:
         try:
             sb.table("products").upsert(_product_to_row(product)).execute()
-            load_products.clear()
+            load_products.clear()  # clears all owner caches
             _sync_static_products(load_products())
             return
         except Exception:
@@ -154,11 +212,11 @@ def upsert_product(product):
     for i, p in enumerate(products):
         if p["id"] == product["id"]:
             products[i] = product
-            load_products.clear()
+            load_products.clear()  # clears all owner caches
             _local_save_products(products)
             _sync_static_products(products)
             return
-    load_products.clear()
+    load_products.clear()  # clears all owner caches
     products.append(product)
     _local_save_products(products)
     _sync_static_products(products)
@@ -175,16 +233,19 @@ def get_product(pid):
 
 def _product_to_row(p):
     return {
-        "id": p.get("id", ""),
-        "name": p.get("name", ""),
-        "vintage": p.get("vintage", ""),
-        "variety": p.get("variety", ""),
-        "region": p.get("region", ""),
-        "producer_name": p.get("producer_name", ""),
-        "collection": p.get("collection", ""),
-        "status": p.get("status", "draft"),
-        "data": p,
-        "updated_at": datetime.now().isoformat(),
+        "id":           p.get("id", ""),
+        "name":         p.get("name", ""),
+        "vintage":      p.get("vintage", ""),
+        "variety":      p.get("variety", ""),
+        "region":       p.get("region", ""),
+        "producer_name":p.get("producer_name", ""),
+        "collection":   p.get("collection", ""),
+        "status":       p.get("status", "draft"),
+        "owner_id":     p.get("owner_id", ""),
+        "owner_email":  p.get("owner_email", ""),
+        "winery_name":  p.get("winery_name", ""),
+        "data":         p,
+        "updated_at":   datetime.now().isoformat(),
     }
 
 def _sync_static_products(products):
@@ -606,27 +667,50 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
 @st.dialog("Welcome to VineLabel")
 def _landing_login():
     st.markdown("""
-<div style="text-align:center;margin-bottom:8px;">
-  <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:4px;">Sign in or get started</div>
-  <div style="font-size:14px;color:#6e5a3d;">Enter your winery name to continue. Your first 2 labels are free.</div>
+<div style="text-align:center;margin-bottom:12px;">
+  <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:4px;">Sign in or create account</div>
+  <div style="font-size:13px;color:#6e5a3d;">Your products are saved securely to your account.</div>
 </div>
 """, unsafe_allow_html=True)
-    winery = st.text_input("Winery name", placeholder="e.g. Barossa Valley Estate")
-    email  = st.text_input("Email address", placeholder="you@yourwinery.com.au")
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Continue →", type="primary", use_container_width=True):
-            if winery.strip():
-                st.session_state["winery_name"]  = winery.strip()
-                st.session_state["winery_email"] = email.strip()
-                st.session_state["show_login"]   = False
-                st.query_params["page"] = "dashboard"
-                st.rerun()
+    tab_in, tab_up = st.tabs(["Sign in", "Create account"])
+
+    with tab_in:
+        si_email = st.text_input("Email", placeholder="you@yourwinery.com.au", key="si_email")
+        si_pass  = st.text_input("Password", type="password", key="si_pass")
+        si_winery = st.text_input("Winery name", placeholder="e.g. Barossa Valley Estate", key="si_winery", help="Used to personalise your dashboard")
+        if st.button("Sign in →", type="primary", use_container_width=True, key="si_btn"):
+            if si_email.strip() and si_pass:
+                user, err = _auth_sign_in(si_email, si_pass)
+                if user:
+                    if si_winery.strip():
+                        st.session_state["winery_name"] = si_winery.strip()
+                    st.session_state["show_login"] = False
+                    st.query_params["page"] = "dashboard"
+                    st.rerun()
+                else:
+                    st.error(f"Sign in failed: {err}")
             else:
-                st.error("Please enter your winery name.")
-    with col2:
-        if st.button("Cancel", type="secondary", use_container_width=True):
-            st.session_state["show_login"] = False; st.rerun()
+                st.error("Please enter your email and password.")
+
+    with tab_up:
+        su_winery = st.text_input("Winery name *", placeholder="e.g. Barossa Valley Estate", key="su_winery")
+        su_email  = st.text_input("Email *", placeholder="you@yourwinery.com.au", key="su_email")
+        su_pass   = st.text_input("Password *", type="password", key="su_pass", help="Minimum 6 characters")
+        if st.button("Create account →", type="primary", use_container_width=True, key="su_btn"):
+            if su_winery.strip() and su_email.strip() and su_pass:
+                user, err = _auth_sign_up(su_email, su_pass, su_winery)
+                if user:
+                    st.session_state["show_login"] = False
+                    st.query_params["page"] = "dashboard"
+                    st.rerun()
+                else:
+                    st.error(f"Sign up failed: {err}")
+            else:
+                st.error("Please fill in all fields.")
+
+    st.markdown('<div style="height:4px;"></div>', unsafe_allow_html=True)
+    if st.button("Cancel", type="secondary", use_container_width=True, key="login_cancel"):
+        st.session_state["show_login"] = False; st.rerun()
 
 def inject_css():
     _wood_svg   = _wood_texture_b64()
@@ -1367,14 +1451,21 @@ def show_dashboard():
 </style>""", unsafe_allow_html=True)
 
     _sb_status, _sb_err = _supabase_status()
-    if _sb_status == "connected":
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#f0faf4;border:1px solid #22c55e40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#15803d;">&#9679; Connected to Supabase</div>', unsafe_allow_html=True)
-    elif _sb_status == "no_credentials":
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fffbeb;border:1px solid #f59e0b40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#b45309;">&#9679; No Supabase credentials — using local storage</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fff1f2;border:1px solid #f4364040;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#be123c;">&#9679; Supabase error: {_sb_err}</div>', unsafe_allow_html=True)
+    _status_col, _signout_col = st.columns([5, 1])
+    with _status_col:
+        if _sb_status == "connected":
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#f0faf4;border:1px solid #22c55e40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#15803d;">&#9679; Connected to Supabase</div>', unsafe_allow_html=True)
+        elif _sb_status == "no_credentials":
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fffbeb;border:1px solid #f59e0b40;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#b45309;">&#9679; No Supabase credentials — using local storage</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="font-family:Space Grotesk,sans-serif;font-size:12px;background:#fff1f2;border:1px solid #f4364040;border-radius:8px;padding:6px 12px;margin-bottom:10px;color:#be123c;">&#9679; Supabase error: {_sb_err}</div>', unsafe_allow_html=True)
+    with _signout_col:
+        if _is_logged_in() and st.button("Sign out", key="signout_btn", use_container_width=True):
+            _auth_sign_out()
+            st.query_params.clear()
+            st.rerun()
 
-    products  = load_products()
+    products  = load_products(owner_id=_owner_id())
     published = sum(1 for p in products if p.get("status") == "published")
     drafts    = len(products) - published
 
@@ -1663,7 +1754,7 @@ def show_product_form(existing=None):
         producer_address = st.text_input("Producer address", value=p.get("producer_address") or _s.get("producer_address", ""), placeholder="Street, City, State, Postcode")
         existing_collections = sorted({
             prod.get("collection","").strip()
-            for prod in load_products()
+            for prod in load_products(owner_id=_owner_id())
             if prod.get("collection","").strip() and prod["id"] != p.get("id","")
         })
         curr_collection = (p.get("collection") or "").strip()
@@ -1955,6 +2046,9 @@ def show_product_form(existing=None):
                 "label_language": _LABEL_LANG_OPTIONS[label_language],
                 "product_image": _new_img, "product_image_filename": _new_img_name,
                 "status": p.get("status", "draft"),
+                "owner_id":    _owner_id()    or p.get("owner_id", ""),
+                "owner_email": _owner_email() or p.get("owner_email", ""),
+                "winery_name": st.session_state.get("winery_name", "") or p.get("winery_name", ""),
                 "created_at": p.get("created_at", datetime.now().isoformat()),
                 "updated_at": datetime.now().isoformat(),
             }
@@ -2127,14 +2221,26 @@ def main():
     qp_id = st.query_params.get("id", "")
 
     if "dashboard" in st.query_params or qp == "dashboard":
-        inject_dashboard_css(); show_dashboard()
+        if not _is_logged_in():
+            _landing_login(); show_landing()
+        else:
+            inject_dashboard_css(); show_dashboard()
     elif qp == "add":
-        inject_dashboard_css(); show_product_form()
+        if not _is_logged_in():
+            _landing_login(); show_landing()
+        else:
+            inject_dashboard_css(); show_product_form()
     elif qp == "edit":
-        inject_dashboard_css()
-        show_product_form(existing=get_product(qp_id) if qp_id else None)
+        if not _is_logged_in():
+            _landing_login(); show_landing()
+        else:
+            inject_dashboard_css()
+            show_product_form(existing=get_product(qp_id) if qp_id else None)
     elif qp == "qr":
-        inject_dashboard_css(); show_qr_page(qp_id)
+        if not _is_logged_in():
+            _landing_login(); show_landing()
+        else:
+            inject_dashboard_css(); show_qr_page(qp_id)
     else:
         show_landing()
 
