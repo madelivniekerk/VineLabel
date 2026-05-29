@@ -1,6 +1,7 @@
 """
 Exports all products and settings from Supabase to JSON files in backup/.
-Run by GitHub Actions every 30 minutes.
+Run by GitHub Actions on schedule. Saves full rows (all columns) so restore.py
+can upsert them back without data loss.
 """
 import os
 import json
@@ -25,15 +26,15 @@ sb = create_client(url, key)
 
 Path("backup").mkdir(exist_ok=True)
 
-# Products — order by updated_at (created_at may not be a table column)
+# Products — save full rows (id, data, owner_id, owner_email, winery_name, updated_at)
 rows     = sb.table("products").select("*").order("updated_at").execute()
-products = [r["data"] for r in rows.data if r.get("data")]
+products = rows.data
 with open("backup/products_backup.json", "w", encoding="utf-8") as f:
     json.dump(products, f, indent=2, ensure_ascii=False)
 
-# Settings
-s_rows   = sb.table("settings").select("data").eq("id", "default").execute()
-settings = s_rows.data[0]["data"] if s_rows.data else {}
+# Settings — save full row
+s_rows   = sb.table("settings").select("*").eq("id", "default").execute()
+settings = s_rows.data[0] if s_rows.data else {}
 with open("backup/settings_backup.json", "w", encoding="utf-8") as f:
     json.dump(settings, f, indent=2, ensure_ascii=False)
 
