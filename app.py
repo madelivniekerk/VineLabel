@@ -749,22 +749,22 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
   </div>
 </div>
 <script>
-function setVLBilling(mode){
-  var prices = {grower:{monthly:'15',yearly:'149'},estate:{monthly:'29',yearly:'299'}};
-  var periods = {grower:{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'},estate:{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}};
-  ['grower','estate'].forEach(function(p){
+function setVLBilling(mode){{
+  var prices = {{grower:{{monthly:'15',yearly:'149'}},estate:{{monthly:'29',yearly:'299'}}}};
+  var periods = {{grower:{{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'}},estate:{{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}}}};
+  ['grower','estate'].forEach(function(p){{
     var pe=document.getElementById('vl-price-'+p); if(pe) pe.textContent=prices[p][mode];
     var pp=document.getElementById('vl-period-'+p); if(pp) pp.textContent=periods[p][mode];
-  });
+  }});
   var my=document.getElementById('vl-btn-monthly'), yr=document.getElementById('vl-btn-yearly');
-  if(mode==='monthly'){
-    if(my){my.style.background='#f3ead9';my.style.color='#15110d';}
-    if(yr){yr.style.background='transparent';yr.style.color='rgba(243,234,217,0.55)';}
-  } else {
-    if(yr){yr.style.background='#f3ead9';yr.style.color='#15110d';}
-    if(my){my.style.background='transparent';my.style.color='rgba(243,234,217,0.55)';}
-  }
-}
+  if(mode==='monthly'){{
+    if(my){{my.style.background='#f3ead9';my.style.color='#15110d';}}
+    if(yr){{yr.style.background='transparent';yr.style.color='rgba(243,234,217,0.55)';}}
+  }} else {{
+    if(yr){{yr.style.background='#f3ead9';yr.style.color='#15110d';}}
+    if(my){{my.style.background='transparent';my.style.color='rgba(243,234,217,0.55)';}}
+  }}
+}}
 </script>
 
 <!-- BACK TO TOP -->
