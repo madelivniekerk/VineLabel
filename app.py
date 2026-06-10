@@ -592,6 +592,16 @@ body,
 ::-webkit-scrollbar{{display:none!important;}}
 html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-behavior:smooth!important;}}
 [data-testid="stAppViewContainer"]{{scroll-behavior:smooth!important;}}
+.vl-p-monthly,.vl-per-monthly{{display:none!important;}}
+.vl-p-yearly,.vl-per-yearly{{display:inline!important;}}
+.vl-lbl-yearly{{background:#f3ead9;color:#15110d;}}
+.vl-lbl-monthly{{background:transparent;color:rgba(243,234,217,0.55);}}
+#vl-bill-monthly:checked~div .vl-p-monthly,
+#vl-bill-monthly:checked~div .vl-per-monthly{{display:inline!important;}}
+#vl-bill-monthly:checked~div .vl-p-yearly,
+#vl-bill-monthly:checked~div .vl-per-yearly{{display:none!important;}}
+#vl-bill-monthly:checked~div .vl-lbl-monthly{{background:#f3ead9!important;color:#15110d!important;}}
+#vl-bill-monthly:checked~div .vl-lbl-yearly{{background:transparent!important;color:rgba(243,234,217,0.55)!important;}}
 </style>
 <nav style="position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 56px;background:rgba(12,8,6,0.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(243,234,217,0.08);">
   <a href="#top" style="display:flex;align-items:center;gap:14px;text-decoration:none;">
@@ -703,7 +713,9 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
 </div>
 
 <!-- PRICING -->
-<div id="pricing" style="background:#1b130c;border-top:1px solid rgba(243,234,217,0.06);border-bottom:1px solid rgba(243,234,217,0.06);padding:72px 56px;">
+<div id="pricing" style="background:#1b130c;border-top:1px solid rgba(243,234,217,0.06);border-bottom:1px solid rgba(243,234,217,0.06);padding:72px 56px;position:relative;">
+  <input type="radio" name="vl-billing" id="vl-bill-yearly" checked style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
+  <input type="radio" name="vl-billing" id="vl-bill-monthly" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0">
   <div style="max-width:1140px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:48px;">
       <div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#c89a5a;display:inline-flex;align-items:center;gap:12px;">
@@ -713,8 +725,8 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
       <p style="color:rgba(243,234,217,0.7);font-size:16px;line-height:1.6;max-width:52ch;margin:14px auto 0;">Your first two products are free, forever. Upgrade only when your range grows — cancel any time.</p>
       <div style="display:inline-flex;align-items:center;gap:14px;margin-top:28px;">
         <div style="display:inline-flex;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.12);border-radius:999px;padding:4px;gap:4px;">
-          <button id="vl-btn-monthly" type="button" onclick="setVLBilling('monthly')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:transparent;color:rgba(243,234,217,0.55);">Monthly</button>
-          <button id="vl-btn-yearly" type="button" onclick="setVLBilling('yearly')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:#f3ead9;color:#15110d;">Yearly</button>
+          <label for="vl-bill-monthly" class="vl-lbl-monthly" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;cursor:pointer;user-select:none;">Monthly</label>
+          <label for="vl-bill-yearly" class="vl-lbl-yearly" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;cursor:pointer;user-select:none;">Yearly</label>
         </div>
         <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#c89a5a;background:rgba(200,154,90,0.12);border:1px solid rgba(200,154,90,0.25);border-radius:999px;padding:4px 11px;">2 months free</span>
       </div>
@@ -732,23 +744,22 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
         <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;background:#7a1d24;color:#f3ead9;padding:5px 14px;border-radius:999px;white-space:nowrap;">Most popular</div>
         <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Grower</div>
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">For a growing range heading into Europe.</div>
-        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span id="vl-price-grower" data-monthly="15" data-yearly="149">149</span></div>
-        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span id="vl-period-grower" data-monthly="per month · up to 10 products" data-yearly="per year · up to 10 products">per year · up to 10 products</span></div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span class="vl-p-yearly">149</span><span class="vl-p-monthly">15</span></div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span class="vl-per-yearly">per year · up to 10 products</span><span class="vl-per-monthly">per month · up to 10 products</span></div>
         <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:#7a1d24;color:#f3ead9;box-shadow:0 8px 20px rgba(122,29,36,0.4);margin-bottom:20px;">Start Grower</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Up to 10 products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
       <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
         <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Estate</div>
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Unlimited products for your whole portfolio.</div>
-        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span id="vl-price-estate" data-monthly="29" data-yearly="299">299</span></div>
-        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span id="vl-period-estate" data-monthly="per month · unlimited products" data-yearly="per year · unlimited products">per year · unlimited products</span></div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span class="vl-p-yearly">299</span><span class="vl-p-monthly">29</span></div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span class="vl-per-yearly">per year · unlimited products</span><span class="vl-per-monthly">per month · unlimited products</span></div>
         <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start Estate</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Unlimited products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
     </div>
   </div>
 </div>
-<iframe style="position:absolute;width:0;height:0;border:0" srcdoc="&lt;script&gt;parent.setVLBilling=function(m){{var P={{grower:{{monthly:'15',yearly:'149'}},estate:{{monthly:'29',yearly:'299'}}}};var T={{grower:{{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'}},estate:{{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}}}};['grower','estate'].forEach(function(k){{var pe=parent.document.getElementById('vl-price-'+k);if(pe)pe.textContent=P[k][m];var pp=parent.document.getElementById('vl-period-'+k);if(pp)pp.textContent=T[k][m];}});var mb=parent.document.getElementById('vl-btn-monthly'),yb=parent.document.getElementById('vl-btn-yearly');if(m==='monthly'){{if(mb){{mb.style.background='#f3ead9';mb.style.color='#15110d';}}if(yb){{yb.style.background='transparent';yb.style.color='rgba(243,234,217,0.55)';}}}}else{{if(yb){{yb.style.background='#f3ead9';yb.style.color='#15110d';}}if(mb){{mb.style.background='transparent';mb.style.color='rgba(243,234,217,0.55)';}}}}}};&lt;/script&gt;"></iframe>
 
 <!-- BACK TO TOP -->
 <div style="text-align:center;padding:40px 56px 0;background:#1b130c;">
