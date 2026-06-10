@@ -742,6 +742,11 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
   </div>
 </div>
 
+<!-- BACK TO TOP -->
+<div style="text-align:center;padding:40px 56px 0;background:#1b130c;">
+  <a href="#top" style="display:inline-flex;align-items:center;gap:8px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:500;color:rgba(243,234,217,0.6);text-decoration:none;padding:10px 22px;border-radius:999px;border:1px solid rgba(243,234,217,0.14);background:rgba(243,234,217,0.04);transition:color .15s ease;">↑ Back to top</a>
+</div>
+
 <!-- FOOTER -->
 <div style="border-top:1px solid rgba(243,234,217,0.08);padding:28px 56px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
   <div style="display:flex;align-items:center;gap:12px;">
