@@ -611,11 +611,11 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
       <span style="width:7px;height:7px;border-radius:50%;background:#c89a5a;box-shadow:0 0 0 3px rgba(200,154,90,0.18);display:inline-block;"></span>AI-Powered · EU Reg. 2021/2117 · Built for Australia
     </div>
     <div style="font-family:Caveat,cursive;font-size:24px;color:#c89a5a;line-height:1.1;margin:0 0 2px;display:flex;align-items:center;gap:14px;">
-      <span style="width:38px;height:1px;background:#c89a5a;opacity:0.7;display:inline-block;"></span>the only wine label tool with built-in AI
+      <span style="width:38px;height:1px;background:#c89a5a;opacity:0.7;display:inline-block;"></span>a smoother way to ship into Europe
     </div>
     <h1 style="font-family:Gloock,serif;font-weight:400;font-size:clamp(36px,4vw,58px);line-height:1.05;letter-spacing:-0.01em;margin:0 0 2px;color:#f3ead9;">
-      Your EU label,<br>
-      <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;font-size:0.82em;display:block;margin-top:4px;white-space:nowrap;">approved before it ships.</span>
+      Compliance,<br>
+      <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;font-size:0.82em;display:block;margin-top:4px;white-space:nowrap;">without the complexity.</span>
     </h1>
     <p style="font-size:17px;line-height:1.55;color:rgba(243,234,217,0.82);margin:0 0 16px;max-width:52ch;">
       A <strong style="color:#f3ead9;font-weight:500;">wrong allergen declaration</strong> can hold your shipment at EU customs.
@@ -634,10 +634,6 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
       <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
         <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
         <span><b style="color:#f3ead9;font-weight:500;">Live compliance score</b> — know exactly what's missing across Reg. 2021/2117, PPWR 2025, and ESPR 2026.</span>
-      </li>
-      <li style="display:flex;align-items:flex-start;gap:12px;font-size:16px;color:rgba(243,234,217,0.92);line-height:1.4;">
-        <span style="flex:0 0 22px;width:22px;height:22px;border-radius:50%;background:rgba(200,154,90,0.14);border:1px solid rgba(200,154,90,0.55);display:grid;place-items:center;color:#c89a5a;font-size:12px;">✓</span>
-        <span><b style="color:#f3ead9;font-weight:500;">Winery profile pre-fill</b> — enter your producer and importer details once; every new label auto-populates them.</span>
       </li>
     </ul>
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
@@ -663,6 +659,90 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
   <span style="flex:1;height:1px;background:rgba(243,234,217,0.14);display:block;"></span>
   <span style="font-family:Caveat,cursive;font-size:20px;color:#c89a5a;">pour a glass · take your time</span>
   <span style="flex:1;height:1px;background:rgba(243,234,217,0.14);display:block;"></span>
+</div>
+
+<!-- HOW IT WORKS -->
+<div style="background:#140f0a;border-top:1px solid rgba(243,234,217,0.08);padding:72px 56px;">
+  <div style="max-width:1140px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:48px;">
+      <div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#c89a5a;display:inline-flex;align-items:center;gap:12px;">
+        <span style="width:24px;height:1px;background:#c89a5a;opacity:0.5;display:inline-block;"></span>How it works<span style="width:24px;height:1px;background:#c89a5a;opacity:0.5;display:inline-block;"></span>
+      </div>
+      <div style="font-family:Gloock,serif;font-weight:400;font-size:clamp(28px,3.5vw,44px);line-height:1.06;color:#f3ead9;margin:14px 0 0;">From cellar door to <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;">European shelf.</span></div>
+      <p style="color:rgba(243,234,217,0.7);font-size:16px;line-height:1.6;max-width:52ch;margin:14px auto 0;">Four unhurried steps. Fill in your wine once and VineLabel handles the EU paperwork — so you can get back to the vines.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+      <div style="background:rgba(243,234,217,0.04);border:1px solid rgba(243,234,217,0.1);border-radius:16px;padding:26px 22px;">
+        <div style="width:38px;height:38px;border-radius:10px;background:#7a1d24;color:#f3ead9;font-family:Gloock,serif;font-size:18px;display:grid;place-items:center;margin-bottom:16px;box-shadow:0 6px 16px rgba(122,29,36,0.4);">1</div>
+        <div style="font-family:Gloock,serif;font-weight:400;font-size:18px;color:#f3ead9;margin:0 0 8px;">Add your product</div>
+        <p style="font-size:13px;line-height:1.6;color:rgba(243,234,217,0.66);margin:0;">Fill in your wine's ingredients, allergens, nutrition facts and certifications.</p>
+      </div>
+      <div style="background:rgba(243,234,217,0.04);border:1px solid rgba(243,234,217,0.1);border-radius:16px;padding:26px 22px;">
+        <div style="width:38px;height:38px;border-radius:10px;background:#7a1d24;color:#f3ead9;font-family:Gloock,serif;font-size:18px;display:grid;place-items:center;margin-bottom:16px;box-shadow:0 6px 16px rgba(122,29,36,0.4);">2</div>
+        <div style="font-family:Gloock,serif;font-weight:400;font-size:18px;color:#f3ead9;margin:0 0 8px;">Generate your QR code</div>
+        <p style="font-size:13px;line-height:1.6;color:rgba(243,234,217,0.66);margin:0;">One click creates a unique code linked to your digital label.</p>
+      </div>
+      <div style="background:rgba(243,234,217,0.04);border:1px solid rgba(243,234,217,0.1);border-radius:16px;padding:26px 22px;">
+        <div style="width:38px;height:38px;border-radius:10px;background:#7a1d24;color:#f3ead9;font-family:Gloock,serif;font-size:18px;display:grid;place-items:center;margin-bottom:16px;box-shadow:0 6px 16px rgba(122,29,36,0.4);">3</div>
+        <div style="font-family:Gloock,serif;font-weight:400;font-size:18px;color:#f3ead9;margin:0 0 8px;">Print it on your label</div>
+        <p style="font-size:13px;line-height:1.6;color:rgba(243,234,217,0.66);margin:0;">Add the QR to your bottle, neck tag, or back label.</p>
+      </div>
+      <div style="background:rgba(243,234,217,0.04);border:1px solid rgba(243,234,217,0.1);border-radius:16px;padding:26px 22px;">
+        <div style="width:38px;height:38px;border-radius:10px;background:#7a1d24;color:#f3ead9;font-family:Gloock,serif;font-size:18px;display:grid;place-items:center;margin-bottom:16px;box-shadow:0 6px 16px rgba(122,29,36,0.4);">4</div>
+        <div style="font-family:Gloock,serif;font-weight:400;font-size:18px;color:#f3ead9;margin:0 0 8px;">Customers scan and comply</div>
+        <p style="font-size:13px;line-height:1.6;color:rgba(243,234,217,0.66);margin:0;">Buyers and EU customs see a fully compliant digital product passport.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRICING -->
+<div style="background:#1b130c;border-top:1px solid rgba(243,234,217,0.06);border-bottom:1px solid rgba(243,234,217,0.06);padding:72px 56px;">
+  <div style="max-width:1140px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:48px;">
+      <div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#c89a5a;display:inline-flex;align-items:center;gap:12px;">
+        <span style="width:24px;height:1px;background:#c89a5a;opacity:0.5;display:inline-block;"></span>Simple pricing<span style="width:24px;height:1px;background:#c89a5a;opacity:0.5;display:inline-block;"></span>
+      </div>
+      <div style="font-family:Gloock,serif;font-weight:400;font-size:clamp(28px,3.5vw,44px);line-height:1.06;color:#f3ead9;margin:14px 0 0;">Start free. <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;">Pour when you're ready.</span></div>
+      <p style="color:rgba(243,234,217,0.7);font-size:16px;line-height:1.6;max-width:52ch;margin:14px auto 0;">Your first two products are free, forever. Upgrade only when your range grows — cancel any time.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:900px;margin:0 auto;">
+      <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
+        <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Cellar Door</div>
+        <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Try VineLabel on your first two products. No card required.</div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>0</div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">free forever</div>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start free →</a>
+        <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;2 products forever<br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring</div>
+      </div>
+      <div style="background:#f6efe0;border:2px solid #c89a5a;border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 28px 64px rgba(0,0,0,0.5);position:relative;transform:translateY(-10px);">
+        <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;background:#7a1d24;color:#f3ead9;padding:5px 14px;border-radius:999px;white-space:nowrap;">Most popular</div>
+        <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Grower</div>
+        <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">For a growing range heading into Europe.</div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>149</div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · up to 10 products</div>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:#7a1d24;color:#f3ead9;box-shadow:0 8px 20px rgba(122,29,36,0.4);margin-bottom:20px;">Start free trial →</a>
+        <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Up to 10 products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
+      </div>
+      <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
+        <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Estate</div>
+        <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Unlimited products for your whole portfolio.</div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>299</div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · unlimited products</div>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Choose Estate →</a>
+        <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Unlimited products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="border-top:1px solid rgba(243,234,217,0.08);padding:28px 56px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div style="width:32px;height:32px;border-radius:7px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:16px;">V</div>
+    <span style="font-family:Gloock,serif;font-size:17px;color:#f3ead9;">VineLabel</span>
+  </div>
+  <div style="font-size:12px;color:#b7a786;">EU Digital Product Passport studio · Built for Australian wineries &nbsp;·&nbsp; <span style="font-family:Caveat,cursive;font-size:16px;color:#c89a5a;">pour a glass, take your time</span></div>
 </div>
 """, unsafe_allow_html=True)
 
