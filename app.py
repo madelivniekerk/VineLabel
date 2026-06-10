@@ -713,8 +713,8 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
       <p style="color:rgba(243,234,217,0.7);font-size:16px;line-height:1.6;max-width:52ch;margin:14px auto 0;">Your first two products are free, forever. Upgrade only when your range grows — cancel any time.</p>
       <div style="display:inline-flex;align-items:center;gap:14px;margin-top:28px;">
         <div style="display:inline-flex;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.12);border-radius:999px;padding:4px;gap:4px;">
-          <button id="vl-btn-monthly" type="button" onclick="setVLBilling(\'monthly\')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:transparent;color:rgba(243,234,217,0.55);">Monthly</button>
-          <button id="vl-btn-yearly" type="button" onclick="setVLBilling(\'yearly\')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:#f3ead9;color:#15110d;">Yearly</button>
+          <button id="vl-btn-monthly" type="button" onclick="setVLBilling('monthly')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:transparent;color:rgba(243,234,217,0.55);">Monthly</button>
+          <button id="vl-btn-yearly" type="button" onclick="setVLBilling('yearly')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:#f3ead9;color:#15110d;">Yearly</button>
         </div>
         <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#c89a5a;background:rgba(200,154,90,0.12);border:1px solid rgba(200,154,90,0.25);border-radius:999px;padding:4px 11px;">2 months free</span>
       </div>
@@ -748,24 +748,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
     </div>
   </div>
 </div>
-<script>
-function setVLBilling(mode){{
-  var prices = {{grower:{{monthly:'15',yearly:'149'}},estate:{{monthly:'29',yearly:'299'}}}};
-  var periods = {{grower:{{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'}},estate:{{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}}}};
-  ['grower','estate'].forEach(function(p){{
-    var pe=document.getElementById('vl-price-'+p); if(pe) pe.textContent=prices[p][mode];
-    var pp=document.getElementById('vl-period-'+p); if(pp) pp.textContent=periods[p][mode];
-  }});
-  var my=document.getElementById('vl-btn-monthly'), yr=document.getElementById('vl-btn-yearly');
-  if(mode==='monthly'){{
-    if(my){{my.style.background='#f3ead9';my.style.color='#15110d';}}
-    if(yr){{yr.style.background='transparent';yr.style.color='rgba(243,234,217,0.55)';}}
-  }} else {{
-    if(yr){{yr.style.background='#f3ead9';yr.style.color='#15110d';}}
-    if(my){{my.style.background='transparent';my.style.color='rgba(243,234,217,0.55)';}}
-  }}
-}}
-</script>
+<iframe style="position:absolute;width:0;height:0;border:0" srcdoc="&lt;script&gt;parent.setVLBilling=function(m){{var P={{grower:{{monthly:'15',yearly:'149'}},estate:{{monthly:'29',yearly:'299'}}}};var T={{grower:{{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'}},estate:{{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}}}};['grower','estate'].forEach(function(k){{var pe=parent.document.getElementById('vl-price-'+k);if(pe)pe.textContent=P[k][m];var pp=parent.document.getElementById('vl-period-'+k);if(pp)pp.textContent=T[k][m];}});var mb=parent.document.getElementById('vl-btn-monthly'),yb=parent.document.getElementById('vl-btn-yearly');if(m==='monthly'){{if(mb){{mb.style.background='#f3ead9';mb.style.color='#15110d';}}if(yb){{yb.style.background='transparent';yb.style.color='rgba(243,234,217,0.55)';}}}}else{{if(yb){{yb.style.background='#f3ead9';yb.style.color='#15110d';}}if(mb){{mb.style.background='transparent';mb.style.color='rgba(243,234,217,0.55)';}}}}}};&lt;/script&gt;"></iframe>
 
 <!-- BACK TO TOP -->
 <div style="text-align:center;padding:40px 56px 0;background:#1b130c;">
