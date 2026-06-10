@@ -718,7 +718,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Try VineLabel on your first two products. No card required.</div>
         <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>0</div>
         <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">free forever</div>
-        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start free →</a>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start free</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;2 products forever<br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring</div>
       </div>
       <div style="background:#f6efe0;border:2px solid #c89a5a;border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 28px 64px rgba(0,0,0,0.5);position:relative;transform:translateY(-10px);">
@@ -727,7 +727,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">For a growing range heading into Europe.</div>
         <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>149</div>
         <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · up to 10 products</div>
-        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:#7a1d24;color:#f3ead9;box-shadow:0 8px 20px rgba(122,29,36,0.4);margin-bottom:20px;">Start free trial →</a>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:#7a1d24;color:#f3ead9;box-shadow:0 8px 20px rgba(122,29,36,0.4);margin-bottom:20px;">Start Grower</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Up to 10 products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
       <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
@@ -735,7 +735,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Unlimited products for your whole portfolio.</div>
         <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>299</div>
         <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · unlimited products</div>
-        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Choose Estate →</a>
+        <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start Estate</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Unlimited products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
     </div>
