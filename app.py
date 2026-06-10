@@ -792,13 +792,10 @@ def _landing_login():
     with tab_in:
         si_email = st.text_input("Email", placeholder="you@yourwinery.com.au", key="si_email")
         si_pass  = st.text_input("Password", type="password", key="si_pass")
-        si_winery = st.text_input("Winery name", placeholder="e.g. Barossa Valley Estate", key="si_winery", help="Used to personalise your dashboard")
         if st.button("Sign in →", type="primary", use_container_width=True, key="si_btn"):
             if si_email.strip() and si_pass:
                 user, err = _auth_sign_in(si_email, si_pass)
                 if user:
-                    if si_winery.strip():
-                        st.session_state["winery_name"] = si_winery.strip()
                     st.session_state["show_login"] = False
                     st.query_params["page"] = "dashboard"
                     st.rerun()
