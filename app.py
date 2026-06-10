@@ -593,14 +593,14 @@ body,
 html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-behavior:smooth!important;}}
 [data-testid="stAppViewContainer"]{{scroll-behavior:smooth!important;}}
 </style>
-<nav style="position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:16px 56px;">
-  <div style="display:flex;align-items:center;gap:14px;">
-    <div style="width:40px;height:40px;border-radius:8px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),0 4px 14px rgba(0,0,0,0.4);">V</div>
+<nav style="position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:14px 56px;background:rgba(12,8,6,0.82);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid rgba(243,234,217,0.08);">
+  <a href="#top" style="display:flex;align-items:center;gap:14px;text-decoration:none;">
+    <div style="width:38px;height:38px;border-radius:8px;background:#7a1d24;color:#f3ead9;display:grid;place-items:center;font-family:Gloock,serif;font-size:20px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.08),0 4px 14px rgba(0,0,0,0.4);">V</div>
     <div style="line-height:1.1;">
       <div style="font-family:Gloock,serif;font-size:20px;color:#f3ead9;letter-spacing:0.005em;">VineLabel</div>
       <div style="font-size:10px;letter-spacing:0.28em;text-transform:uppercase;color:#b7a786;margin-top:2px;">EU DPP Studio</div>
     </div>
-  </div>
+  </a>
   <div style="display:flex;align-items:center;gap:14px;">
     <div style="display:flex;align-items:center;gap:24px;margin-right:10px;">
       <a href="#how" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;color:rgba(243,234,217,0.72);text-decoration:none;">How it works</a>
@@ -610,7 +610,8 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
     <a href="?signin=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;background:#7a1d24;color:#f3ead9;text-decoration:none;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);">Start free →</a>
   </div>
 </nav>
-<main style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);padding:0 56px 24px;align-items:start;gap:40px;">
+<div id="top"></div>
+<main style="position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);padding:80px 56px 24px;align-items:start;gap:40px;">
   <div style="max-width:620px;">
     <div style="display:inline-flex;align-items:center;gap:10px;padding:5px 12px 5px 8px;border-radius:999px;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.14);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#b7a786;margin-bottom:6px;">
       <span style="width:7px;height:7px;border-radius:50%;background:#c89a5a;box-shadow:0 0 0 3px rgba(200,154,90,0.18);display:inline-block;"></span>AI-Powered · EU Reg. 2021/2117 · Built for Australia
