@@ -711,6 +711,13 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
       </div>
       <div style="font-family:Gloock,serif;font-weight:400;font-size:clamp(28px,3.5vw,44px);line-height:1.06;color:#f3ead9;margin:14px 0 0;">Start free. <span style="font-family:Caveat,cursive;font-weight:700;color:#c89a5a;">Pour when you're ready.</span></div>
       <p style="color:rgba(243,234,217,0.7);font-size:16px;line-height:1.6;max-width:52ch;margin:14px auto 0;">Your first two products are free, forever. Upgrade only when your range grows — cancel any time.</p>
+      <div style="display:inline-flex;align-items:center;gap:14px;margin-top:28px;">
+        <div style="display:inline-flex;background:rgba(243,234,217,0.06);border:1px solid rgba(243,234,217,0.12);border-radius:999px;padding:4px;gap:4px;">
+          <button id="vl-btn-monthly" type="button" onclick="setVLBilling(\'monthly\')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:transparent;color:rgba(243,234,217,0.55);">Monthly</button>
+          <button id="vl-btn-yearly" type="button" onclick="setVLBilling(\'yearly\')" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;padding:7px 20px;border-radius:999px;border:none;cursor:pointer;background:#f3ead9;color:#15110d;">Yearly</button>
+        </div>
+        <span style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#c89a5a;background:rgba(200,154,90,0.12);border:1px solid rgba(200,154,90,0.25);border-radius:999px;padding:4px 11px;">2 months free</span>
+      </div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:18px;max-width:900px;margin:0 auto;">
       <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
@@ -725,22 +732,40 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-be
         <div style="position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-family:Inter,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;background:#7a1d24;color:#f3ead9;padding:5px 14px;border-radius:999px;white-space:nowrap;">Most popular</div>
         <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Grower</div>
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">For a growing range heading into Europe.</div>
-        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>149</div>
-        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · up to 10 products</div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span id="vl-price-grower" data-monthly="15" data-yearly="149">149</span></div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span id="vl-period-grower" data-monthly="per month · up to 10 products" data-yearly="per year · up to 10 products">per year · up to 10 products</span></div>
         <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:#7a1d24;color:#f3ead9;box-shadow:0 8px 20px rgba(122,29,36,0.4);margin-bottom:20px;">Start Grower</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Up to 10 products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
       <div style="background:#f6efe0;border:1px solid rgba(40,28,18,0.1);border-radius:18px;padding:28px 24px;color:#15110d;box-shadow:0 12px 30px rgba(0,0,0,0.35);">
         <div style="font-family:Gloock,serif;font-size:22px;color:#15110d;margin-bottom:6px;">Estate</div>
         <div style="font-size:12px;color:#6e5a3d;line-height:1.5;margin-bottom:18px;min-height:36px;">Unlimited products for your whole portfolio.</div>
-        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span>299</div>
-        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;">per year · unlimited products</div>
+        <div style="font-family:Gloock,serif;font-size:46px;color:#7a1d24;line-height:1;display:flex;align-items:flex-start;gap:3px;"><span style="font-size:20px;margin-top:8px;color:#6e5a3d;">A$</span><span id="vl-price-estate" data-monthly="29" data-yearly="299">299</span></div>
+        <div style="font-size:11px;color:#6e5a3d;margin:6px 0 20px;"><span id="vl-period-estate" data-monthly="per month · unlimited products" data-yearly="per year · unlimited products">per year · unlimited products</span></div>
         <a href="?signin=1" style="display:block;text-align:center;padding:12px 0;border-radius:10px;font-family:Inter,sans-serif;font-size:13.5px;font-weight:600;text-decoration:none;background:transparent;color:#15110d;border:1px solid rgba(40,28,18,0.22);margin-bottom:20px;">Start Estate</a>
         <div style="font-size:12.5px;color:#6e5a3d;line-height:1.8;">✓ &nbsp;<b style="color:#15110d;">Unlimited products</b><br>✓ &nbsp;All EU-required fields<br>✓ &nbsp;QR code + consumer page<br>✓ &nbsp;Compliance scoring<br>✓ &nbsp;Multi-language pages<br>✓ &nbsp;Priority support</div>
       </div>
     </div>
   </div>
 </div>
+<script>
+function setVLBilling(mode){
+  var prices = {grower:{monthly:'15',yearly:'149'},estate:{monthly:'29',yearly:'299'}};
+  var periods = {grower:{monthly:'per month · up to 10 products',yearly:'per year · up to 10 products'},estate:{monthly:'per month · unlimited products',yearly:'per year · unlimited products'}};
+  ['grower','estate'].forEach(function(p){
+    var pe=document.getElementById('vl-price-'+p); if(pe) pe.textContent=prices[p][mode];
+    var pp=document.getElementById('vl-period-'+p); if(pp) pp.textContent=periods[p][mode];
+  });
+  var my=document.getElementById('vl-btn-monthly'), yr=document.getElementById('vl-btn-yearly');
+  if(mode==='monthly'){
+    if(my){my.style.background='#f3ead9';my.style.color='#15110d';}
+    if(yr){yr.style.background='transparent';yr.style.color='rgba(243,234,217,0.55)';}
+  } else {
+    if(yr){yr.style.background='#f3ead9';yr.style.color='#15110d';}
+    if(my){my.style.background='transparent';my.style.color='rgba(243,234,217,0.55)';}
+  }
+}
+</script>
 
 <!-- BACK TO TOP -->
 <div style="text-align:center;padding:40px 56px 0;background:#1b130c;">
