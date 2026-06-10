@@ -590,7 +590,8 @@ body,
 }}
 #MainMenu,footer,[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"]{{display:none!important;}}
 ::-webkit-scrollbar{{display:none!important;}}
-html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
+html{{-ms-overflow-style:none!important;scrollbar-width:none!important;scroll-behavior:smooth!important;}}
+[data-testid="stAppViewContainer"]{{scroll-behavior:smooth!important;}}
 </style>
 <nav style="position:relative;z-index:3;display:flex;align-items:center;justify-content:space-between;padding:16px 56px;">
   <div style="display:flex;align-items:center;gap:14px;">
@@ -601,6 +602,10 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
     </div>
   </div>
   <div style="display:flex;align-items:center;gap:14px;">
+    <div style="display:flex;align-items:center;gap:24px;margin-right:10px;">
+      <a href="#how" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;color:rgba(243,234,217,0.72);text-decoration:none;">How it works</a>
+      <a href="#pricing" style="font-family:Inter,sans-serif;font-weight:500;font-size:14px;color:rgba(243,234,217,0.72);text-decoration:none;">Pricing</a>
+    </div>
     <a href="?signin=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;border:1px solid rgba(243,234,217,0.22);background:rgba(243,234,217,0.04);color:#f3ead9;text-decoration:none;">Sign in</a>
     <a href="?signin=1" style="font-family:Inter,sans-serif;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;background:#7a1d24;color:#f3ead9;text-decoration:none;box-shadow:0 6px 18px rgba(122,29,36,0.45),inset 0 1px 0 rgba(255,255,255,0.08);">Start free →</a>
   </div>
@@ -662,7 +667,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
 </div>
 
 <!-- HOW IT WORKS -->
-<div style="background:#140f0a;border-top:1px solid rgba(243,234,217,0.08);padding:72px 56px;">
+<div id="how" style="background:#140f0a;border-top:1px solid rgba(243,234,217,0.08);padding:72px 56px;">
   <div style="max-width:1140px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:48px;">
       <div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#c89a5a;display:inline-flex;align-items:center;gap:12px;">
@@ -697,7 +702,7 @@ html{{-ms-overflow-style:none!important;scrollbar-width:none!important;}}
 </div>
 
 <!-- PRICING -->
-<div style="background:#1b130c;border-top:1px solid rgba(243,234,217,0.06);border-bottom:1px solid rgba(243,234,217,0.06);padding:72px 56px;">
+<div id="pricing" style="background:#1b130c;border-top:1px solid rgba(243,234,217,0.06);border-bottom:1px solid rgba(243,234,217,0.06);padding:72px 56px;">
   <div style="max-width:1140px;margin:0 auto;">
     <div style="text-align:center;margin-bottom:48px;">
       <div style="font-family:Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.28em;text-transform:uppercase;color:#c89a5a;display:inline-flex;align-items:center;gap:12px;">
