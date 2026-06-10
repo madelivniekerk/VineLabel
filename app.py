@@ -406,7 +406,7 @@ def _get_api_key():
 
 def ai_detect_allergens(ingredients):
     if not ANTHROPIC_AVAILABLE or not _get_api_key():
-        return []
+        return None
     try:
         client = _anthropic.Anthropic(api_key=_get_api_key())
         msg = client.messages.create(
@@ -2069,12 +2069,15 @@ def show_product_form(existing=None):
                 "updated_at": datetime.now().isoformat(),
             }
             upsert_product(product)
-            if ANTHROPIC_AVAILABLE and _get_api_key() and all_ings:
+            if all_ings and not _get_api_key():
+                st.warning("⚠️ AI allergen scan skipped — add ANTHROPIC_API_KEY to Streamlit secrets to enable automatic allergen detection.")
+            elif ANTHROPIC_AVAILABLE and _get_api_key() and all_ings:
                 with st.spinner("🤖 Checking allergens..."):
                     detected = ai_detect_allergens(all_ings)
-                missing = [a for a in detected if a not in (selected_allergens or [])]
-                if missing:
-                    st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
+                if detected:
+                    missing = [a for a in detected if a not in (selected_allergens or [])]
+                    if missing:
+                        st.session_state["_allergen_suggestions"] = {"pid": product["id"], "new": missing}
             st.session_state["_saved"] = True
             st.query_params.update({"page": "edit", "id": product["id"]})
             st.rerun()
