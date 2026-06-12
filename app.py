@@ -1937,6 +1937,7 @@ def show_product_form(existing=None):
         existing_fining = p.get("fining_agents", [])
         selected_fining = st.multiselect("Fining agents used", FINING_AGENTS, default=[f for f in existing_fining if f in FINING_AGENTS])
         st.markdown(f'<div style="font-size:12px;font-weight:600;color:{C["ink"]};margin:10px 0 4px;">Allergen Declarations</div>', unsafe_allow_html=True)
+        st.warning("⚠️ Allergens default to Sulphites — please verify and add any additional allergens specific to your wine (e.g. egg, milk, fish fining agents). Incorrect allergen declarations can hold shipments at EU customs.", icon=None)
         existing_allergens = p.get("allergens", ["Sulphites"])
         selected_allergens = st.multiselect("Declared allergens", COMMON_ALLERGENS, default=[a for a in existing_allergens if a in COMMON_ALLERGENS])
         so2_col1, so2_col2 = st.columns([1, 2])
@@ -1950,6 +1951,7 @@ def show_product_form(existing=None):
 
     # ── 4 · Nutrition (per 100 mL) ────────────────────────────────────────
     with st.expander("4 · Nutrition (per 100 mL)", expanded=False):
+        st.warning("⚠️ Nutrition values are pre-filled with estimates only. Replace these with your actual lab-tested values before publishing — incorrect nutrition data is a compliance risk under EU Reg. 2021/2117.", icon=None)
         st.markdown(f'<div style="font-size:12px;color:{C["ink2"]};margin-bottom:8px;">Dry wine ≈ 70 kcal / 293 kJ per 100 mL.</div>', unsafe_allow_html=True)
         auto_calc_energy = st.checkbox("Auto-calculate energy from ABV & carbohydrates (EU formula)", value=p.get("auto_calc_energy", False), help="Energy (kJ) = (ABV% × 0.789 × 29) + (carbs × 17) + (protein × 17) + (fat × 37)")
         nu = p.get("nutrition", {})
@@ -2043,6 +2045,8 @@ def show_product_form(existing=None):
                 st.markdown(f'<div style="padding:6px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">🌍 <strong>{_mp["market"]}</strong> &nbsp;·&nbsp; {_mp["currency"]} {float(_mp["price"]):.2f}</div>', unsafe_allow_html=True)
             with pc2:
                 _rm_price[_mpid] = st.button("Remove", key=f"rmp_{_mpid}", type="secondary")
+        if not p.get("id"):
+            st.info("💡 Save this product first — then you can add market pricing.", icon=None)
         if p.get("id"):
             with st.form("price_add_form", clear_on_submit=True):
                 pa1, pa2, pa3 = st.columns([3, 1, 2])
@@ -2088,6 +2092,8 @@ def show_product_form(existing=None):
                 st.markdown(f'<div style="padding:8px 0;font-family:Space Grotesk,sans-serif;font-size:13px;">📄 <strong>{_cert.get("name","")}</strong>' + (f' — {_cert["issuer"]}' if _cert.get("issuer") else "") + (f' · expires {_cert["expiry"]}' if _cert.get("expiry") else "") + '</div>', unsafe_allow_html=True)
             with cc2:
                 _rm_cert[_cid] = st.button("Remove", key=f"rm_{_cid}", type="secondary")
+        if not p.get("id"):
+            st.info("💡 Save this product first — then you can attach certificate documents.", icon=None)
         if p.get("id"):
             with st.form("cert_upload_form", clear_on_submit=True):
                 cf1, cf2, cf3 = st.columns(3)
