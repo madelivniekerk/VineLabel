@@ -2099,11 +2099,12 @@ def show_product_form(existing=None):
                 cf1, cf2, cf3 = st.columns(3)
                 with cf1: _cert_name   = st.text_input("Certificate name", placeholder="Organic Certificate")
                 with cf2: _cert_issuer = st.text_input("Issuer",           placeholder="ACO Certification")
-                with cf3: _cert_expiry = st.text_input("Expiry date",      placeholder="2026-12-31")
+                with cf3: _cert_expiry_date = st.date_input("Expiry date", value=None, min_value=date.today(), format="DD/MM/YYYY")
                 _cert_file = st.file_uploader("Upload certificate (PDF or Word)", type=["pdf", "doc", "docx"], label_visibility="collapsed")
                 if st.form_submit_button("Attach Certificate", type="primary"):
                     if _cert_file and _cert_name.strip():
-                        entry = {"id": str(uuid.uuid4())[:8], "name": _cert_name.strip(), "issuer": _cert_issuer.strip(), "expiry": _cert_expiry.strip(), "filename": _cert_file.name, "data": base64.b64encode(_cert_file.read()).decode()}
+                        _cert_expiry = _cert_expiry_date.strftime("%d %b %Y") if _cert_expiry_date else ""
+                        entry = {"id": str(uuid.uuid4())[:8], "name": _cert_name.strip(), "issuer": _cert_issuer.strip(), "expiry": _cert_expiry, "filename": _cert_file.name, "data": base64.b64encode(_cert_file.read()).decode()}
                         cur = get_product(p["id"])
                         cur.setdefault("certificates", []).append(entry)
                         upsert_product(cur)
