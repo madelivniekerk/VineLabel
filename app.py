@@ -1141,14 +1141,12 @@ def show_public_label(pid, is_preview=False):
     st.markdown('<div class="public-label-marker" style="display:none;"></div>', unsafe_allow_html=True)
 
     if is_preview:
-        st.markdown(
-            f'<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">'
-            f'<a href="?page=edit&id={pid}" style="display:inline-flex;align-items:center;gap:6px;'
-            f'background:{C["paper"]};border:1px solid {C["ink12"]};border-radius:8px;'
-            f'padding:6px 14px;font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;'
-            f'color:{C["ink"]};text-decoration:none;">✕ Close</a></div>',
-            unsafe_allow_html=True
-        )
+        _close_col = st.columns([4, 1])[1]
+        with _close_col:
+            if st.button("✕ Close", key="label_close_btn", use_container_width=True, type="secondary"):
+                st.query_params["page"] = "edit"
+                st.query_params["id"] = pid
+                st.rerun()
 
     region_line = " · ".join(filter(None, [p.get("product_category"), p.get("variety"), p.get("region"), str(p.get("vintage", ""))]))
     st.markdown(f"""
