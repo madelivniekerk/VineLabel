@@ -793,8 +793,10 @@ def _landing_login():
         si_email = st.text_input("Email", placeholder="you@yourwinery.com.au", key="si_email")
         si_pass  = st.text_input("Password", type="password", key="si_pass")
         if st.button("Sign in →", type="primary", use_container_width=True, key="si_btn"):
-            if si_email.strip() and si_pass:
-                user, err = _auth_sign_in(si_email, si_pass)
+            _si_email = (st.session_state.get("si_email") or "").strip()
+            _si_pass  = st.session_state.get("si_pass") or ""
+            if _si_email and _si_pass:
+                user, err = _auth_sign_in(_si_email, _si_pass)
                 if user:
                     st.session_state["show_login"] = False
                     st.query_params["page"] = "dashboard"
@@ -809,8 +811,11 @@ def _landing_login():
         su_email  = st.text_input("Email *", placeholder="you@yourwinery.com.au", key="su_email")
         su_pass   = st.text_input("Password *", type="password", key="su_pass", help="Minimum 6 characters")
         if st.button("Create account →", type="primary", use_container_width=True, key="su_btn"):
-            if su_winery.strip() and su_email.strip() and su_pass:
-                user, err = _auth_sign_up(su_email, su_pass, su_winery)
+            _su_winery = (su_winery or "").strip()
+            _su_email  = (su_email or "").strip()
+            _su_pass   = su_pass or ""
+            if _su_winery and _su_email and _su_pass:
+                user, err = _auth_sign_up(_su_email, _su_pass, _su_winery)
                 if user:
                     st.session_state["show_login"] = False
                     st.query_params["page"] = "dashboard"
