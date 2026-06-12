@@ -1362,7 +1362,7 @@ def show_public_label(pid, is_preview=False):
 
     # Supply chain
     sc = p.get("supply_chain", {})
-    sc_rows = [(k, v) for k, v in [("Vineyard", sc.get("vineyard_name")), ("Vineyard region", sc.get("vineyard_region")), ("Vineyard country", sc.get("vineyard_country")), ("Bottled by", sc.get("bottling_facility")), ("Bottling location", sc.get("bottling_location")), ("EU importer", sc.get("importer_name"))] if v]
+    sc_rows = [(k, v) for k, v in [("Vineyard", sc.get("vineyard_name")), ("Vineyard region", sc.get("vineyard_region")), ("Vineyard country", sc.get("vineyard_country")), ("Country of grape origin", sc.get("grape_origin_country")), ("Bottled by", sc.get("bottling_facility")), ("Bottling location", sc.get("bottling_location")), ("EU importer", sc.get("importer_name")), ("EU importer address", sc.get("importer_address"))] if v]
     if sc_rows:
         st.markdown(mlabel(_ui("Provenance")), unsafe_allow_html=True)
         rows_html = "".join([f'<div style="display:flex;justify-content:space-between;padding:8px 14px;background:{C["paper"] if i%2==0 else C["bg"]};"><div style="font-family:Space Grotesk,sans-serif;font-size:13px;color:{C["ink60"]};">{k}</div><div style="font-family:Space Grotesk,sans-serif;font-size:13px;font-weight:600;color:{C["ink"]};">{v}</div></div>' for i, (k, v) in enumerate(sc_rows)])
@@ -2051,7 +2051,7 @@ def show_product_form(existing=None):
             with st.form("price_add_form", clear_on_submit=True):
                 pa1, pa2, pa3 = st.columns([3, 1, 2])
                 with pa1: _p_market   = st.text_input("Market / Country", placeholder="e.g. Australia")
-                with pa2: _p_currency = st.selectbox("Currency", ["AUD", "EUR", "USD", "GBP", "NZD", "CAD", "CHF", "DKK", "SEK", "NOK"])
+                with pa2: _p_currency = st.selectbox("Currency", ["AUD", "EUR", "USD", "GBP", "ZAR", "NZD", "CAD", "CHF", "JPY", "CNY", "SGD", "HKD", "DKK", "SEK", "NOK", "AED", "INR", "BRL", "MXN", "KRW"])
                 with pa3: _p_price    = st.number_input("RRP", min_value=0.0, step=0.50, format="%.2f")
                 if st.form_submit_button("+ Add Market Price", type="primary"):
                     if _p_market.strip() and _p_price > 0:
