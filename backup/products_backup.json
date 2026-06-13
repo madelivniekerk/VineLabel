@@ -239,7 +239,7 @@
       "collection": "Rose",
       "created_at": "2026-06-12T03:03:50.593292",
       "lot_number": "202",
-      "updated_at": "2026-06-12T12:57:23.013721",
+      "updated_at": "2026-06-13T06:47:30.597955",
       "ingredients": [
         "Grapes",
         "Sulfur dioxide (E220)",
@@ -330,7 +330,7 @@
       "product_image_filename": "Screenshot 2026-05-27 193823.png"
     },
     "created_at": "2026-06-12T03:03:50.943671+00:00",
-    "updated_at": "2026-06-12T13:00:15.670641+00:00",
+    "updated_at": "2026-06-13T06:47:30.598016+00:00",
     "owner_id": "803fe513-95a3-452c-ad54-f031b4fa797a",
     "owner_email": "scarlettered2@gmail.com",
     "winery_name": "Scarlette Winery"
