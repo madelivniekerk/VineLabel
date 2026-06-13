@@ -372,6 +372,32 @@ def compliance_score(product):
         }
     return results
 
+# ── Plans ─────────────────────────────────────────────────────────────────────
+PLANS = {
+    "free":   {"name": "Cellar Door", "label": "Free",         "limit": 2},
+    "grower": {"name": "Grower",      "label": "A$15/mo",      "limit": 10},
+    "estate": {"name": "Estate",      "label": "A$29/mo",      "limit": None},
+}
+
+def get_user_plan(email):
+    settings = load_settings()
+    return settings.get("user_plans", {}).get((email or "").lower(), "free")
+
+def set_user_plan(email, plan_key):
+    settings = load_settings()
+    plans = settings.get("user_plans", {})
+    plans[(email or "").lower()] = plan_key
+    settings["user_plans"] = plans
+    save_settings(settings)
+
+def plan_product_limit():
+    plan_key = get_user_plan(_owner_email())
+    return PLANS.get(plan_key, PLANS["free"])["limit"]
+
+def plan_at_limit(product_count):
+    limit = plan_product_limit()
+    return limit is not None and product_count >= limit
+
 # ── QR ────────────────────────────────────────────────────────────────────────
 def get_label_url(pid):
     saved = (st.session_state.get("base_url") or load_settings().get("base_url", "")).rstrip("/")
@@ -1643,8 +1669,27 @@ def show_dashboard():
             unsafe_allow_html=True
         )
 
-    if st.button("+ New Product", type="primary", use_container_width=True):
-        st.query_params["page"] = "add"; st.rerun()
+    if not _is_admin():
+        _plan_key   = get_user_plan(_owner_email())
+        _plan_info  = PLANS.get(_plan_key, PLANS["free"])
+        _plan_limit = _plan_info["limit"]
+        _plan_count = len(load_products(owner_id=_owner_id()))
+        _plan_label = f'{_plan_info["name"]} plan · {_plan_count}/{_plan_limit} products' if _plan_limit else f'{_plan_info["name"]} plan · {_plan_count} products'
+        st.markdown(
+            f'<div style="font-family:Inter,sans-serif;font-size:12px;color:{C["mutedDark"]};'
+            f'background:{C["paperCard"]};border:1px solid {C["paperEdge"]};border-radius:8px;'
+            f'padding:6px 12px;margin-bottom:10px;display:inline-block;">📋 {_plan_label}</div>',
+            unsafe_allow_html=True
+        )
+        if plan_at_limit(_plan_count):
+            st.warning(f"⚠️ You've reached the {_plan_info['name']} plan limit of {_plan_limit} products. Contact us to upgrade your plan.", icon=None)
+            st.button("+ New Product", type="primary", use_container_width=True, disabled=True)
+        else:
+            if st.button("+ New Product", type="primary", use_container_width=True):
+                st.query_params["page"] = "add"; st.rerun()
+    else:
+        if st.button("+ New Product", type="primary", use_container_width=True):
+            st.query_params["page"] = "add"; st.rerun()
 
     st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
 
@@ -1659,6 +1704,10 @@ def show_dashboard():
             f'Add your details once — they\'ll pre-fill every new label automatically.</div></div></div>',
             unsafe_allow_html=True
         )
+
+    if _is_admin():
+        with st.expander("🔑 Admin — Plan Management"):
+            show_admin_plans()
 
     with st.expander("⚙️ Winery Profile & Settings"):
         with st.form("winery_profile_form"):
@@ -1712,6 +1761,59 @@ def show_dashboard():
 
 # ── Product form ──────────────────────────────────────────────────────────────
 COMMON_INGREDIENTS = ["Grapes", "Concentrated grape must", "Sulfur dioxide (E220)", "Potassium metabisulphite (E224)", "Yeast", "Tartaric acid (E334)", "Bentonite", "Metatartaric acid (E353)"]
+def show_admin_plans():
+    st.markdown(mlabel("User Plan Management"), unsafe_allow_html=True)
+    settings  = load_settings()
+    all_plans = settings.get("user_plans", {})
+    products  = load_products()
+    # Gather all known emails from products + existing plan assignments
+    known_emails = sorted(set(
+        [p.get("owner_email", "").lower() for p in products if p.get("owner_email")]
+        + list(all_plans.keys())
+    ))
+    if known_emails:
+        for email in known_emails:
+            plan_key  = all_plans.get(email, "free")
+            plan_info = PLANS.get(plan_key, PLANS["free"])
+            prod_count = sum(1 for p in products if (p.get("owner_email") or "").lower() == email)
+            ac1, ac2, ac3 = st.columns([3, 2, 1])
+            with ac1:
+                st.markdown(
+                    f'<div style="font-family:Inter,sans-serif;font-size:13px;padding:8px 0;">'
+                    f'<strong>{email}</strong><br>'
+                    f'<span style="color:{C["mutedDark"]};font-size:11px;">{prod_count} product(s)</span></div>',
+                    unsafe_allow_html=True
+                )
+            with ac2:
+                new_plan = st.selectbox("Plan", list(PLANS.keys()),
+                    index=list(PLANS.keys()).index(plan_key),
+                    format_func=lambda k: f'{PLANS[k]["name"]} ({PLANS[k]["label"]})',
+                    key=f"plan_sel_{email}", label_visibility="collapsed")
+            with ac3:
+                if st.button("Save", key=f"plan_save_{email}", type="primary"):
+                    set_user_plan(email, new_plan)
+                    st.success(f"Plan updated.")
+                    st.rerun()
+    else:
+        st.info("No users with products yet.")
+
+    st.markdown('<div style="height:6px;"></div>', unsafe_allow_html=True)
+    st.markdown(mlabel("Assign plan to new email"), unsafe_allow_html=True)
+    with st.form("new_plan_form", clear_on_submit=True):
+        np1, np2, np3 = st.columns([3, 2, 1])
+        with np1: new_email = st.text_input("Email", placeholder="user@winery.com", label_visibility="collapsed")
+        with np2: new_plan_key = st.selectbox("Plan", list(PLANS.keys()),
+                    format_func=lambda k: f'{PLANS[k]["name"]} ({PLANS[k]["label"]})',
+                    label_visibility="collapsed")
+        with np3: submitted = st.form_submit_button("Add", type="primary")
+        if submitted:
+            if new_email.strip():
+                set_user_plan(new_email.strip(), new_plan_key)
+                st.success(f"Plan set for {new_email.strip()}.")
+                st.rerun()
+            else:
+                st.warning("Enter an email address.")
+
 COMMON_ALLERGENS   = ["Sulphites", "Egg (albumin fining agent)", "Milk (casein fining agent)", "Fish (isinglass fining agent)"]
 FINING_AGENTS      = ["Egg albumin (ovalbumin)", "Casein (milk protein)", "Isinglass (fish)", "Gelatin (animal)", "Bentonite (clay — allergen-free)", "Activated charcoal", "Silica gel", "Kaolin"]
 SWEETNESS_DESCRIPTORS = ["— Not specified —", "Dry", "Medium-dry", "Medium-sweet", "Sweet"]
