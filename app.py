@@ -1144,8 +1144,8 @@ def show_public_label(pid, is_preview=False):
         _close_col = st.columns([4, 1])[1]
         with _close_col:
             if st.button("✕ Close", key="label_close_btn", use_container_width=True, type="secondary"):
-                st.query_params["page"] = "edit"
-                st.query_params["id"] = pid
+                st.query_params.clear()
+                st.query_params.update({"page": "edit", "id": pid})
                 st.rerun()
 
     region_line = " · ".join(filter(None, [p.get("product_category"), p.get("variety"), p.get("region"), str(p.get("vintage", ""))]))
